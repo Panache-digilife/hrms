@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Panache</title>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role) { window.location.href = "index.html"; }
+        if (role !== "admin") { window.location.href = "index.html"; }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        /* ============================================================
+           ADMIN DASHBOARD — page-specific additions only.
+           Shared design system lives in panache-theme.css
+        ============================================================ */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { display: flex; }
+
+        /* Logo (mark + wordmark + sub label), matches Employee Dashboard exactly */
+        .logo { display: flex; align-items: baseline; gap: 8px; padding: 4px 10px 22px; margin-bottom: 6px; border-bottom: 1px solid var(--ink-line); font-family: inherit; font-style: normal; }
+        .logo .mark { color: var(--brass); font-size: 20px; line-height: 1; transform: translateY(-1px); }
+        .logo .word { font-family: var(--font-display); font-style: italic; font-weight: 560; font-size: 21px; letter-spacing: .2px; }
+        .logo .sub { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 1.6px; font-weight: 600; }
+
+        .header-title .eyebrow { font-size: 11.5px; font-weight: 700; color: var(--brass-dark); text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 3px; }
+        .header-actions { display:flex; align-items:center; gap:14px; flex-wrap: wrap; }
+
+        /* Mini bar (score / utilization bars in performance tables) */
+        .mini-bar-wrap { display: flex; align-items: center; gap: 8px; }
+        .mini-bar-track { flex:1; background: var(--border-soft); border-radius:99px; height:7px; overflow:hidden; }
+        .mini-bar-fill  { height:100%; border-radius:99px; background: var(--brass); }
+        .mini-bar-fill.green  { background: var(--success); }
+        .mini-bar-fill.yellow { background: var(--warning); }
+        .mini-bar-fill.red    { background: var(--danger); }
+        .mini-bar-label { font-size:13px; font-weight:600; min-width:36px; color: var(--text); }
+
+        .modal-box h2 { font-family: var(--font-display); font-weight:600; font-size:19px; color: var(--text); margin-bottom: 18px; }
+        .modal-box label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; display:block; margin-bottom: 6px; margin-top: 14px; }
+        .modal-box input, .modal-box select {
+            width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 14px; color: var(--text); outline: none; background: var(--surface-muted);
+            font-family: var(--font-body); transition: border-color .15s ease, background .15s ease;
+        }
+        .modal-box input:focus, .modal-box select:focus { border-color: var(--brass-dark); background: var(--surface); }
+
+        /* KPI card icon chips */
+        .card .icon-chip { width: 34px; height: 34px; border-radius: 10px; display:flex; align-items:center; justify-content:center; margin-bottom: 14px; background: var(--brass-tint); color: var(--brass-dark); }
+        .card.blue .icon-chip   { background: var(--info-tint);    color: var(--info); }
+        .card.green .icon-chip  { background: var(--success-tint); color: var(--success); }
+        .card.yellow .icon-chip { background: var(--warning-tint); color: var(--warning); }
+        .card.red .icon-chip    { background: var(--danger-tint);  color: var(--danger); }
+    </style>
+</head>
+
+<body>
+
+<!-- MOBILE SIDEBAR CONTROLS -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleMobileSidebar()" aria-label="Open menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="mainSidebar">
+    <div class="logo">
+        <span class="mark">✦</span>
+        <div>
+            <div class="word">Panache</div>
+            <div class="sub">Workforce&nbsp;OS</div>
+        </div>
+    </div>
+    <div class="menu">
+        <a href="admin-dashboard.html" class="active">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+            Dashboard
+        </a>
+
+        <a href="team-chat.html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            Team Chat
+        </a>
+
+        <div class="menu-group" data-group="Workforce">
+            <div class="menu-group-header" onclick="toggleSidebarGroup('Workforce')">Workforce<span class="chev">▶</span></div>
+            <div class="menu-group-items">
+                <a href="employee-hub.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Employee Hub</a>
+                <a href="attendance.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M9 15l2 2 4-4"/></svg>Attendance manager</a>
+                <a href="insurance-manager.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3.5v5c0 5-3.4 8.4-8 9.5-4.6-1.1-8-4.5-8-9.5v-5L12 3z"/></svg>Insurance</a>
+                <a href="expense-vouchers.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Expense Vouchers <span class="nav-dot" id="navDotExpenses"></span></a>
+            </div>
+        </div>
+
+        <div class="menu-group" data-group="Documents">
+            <div class="menu-group-header" onclick="toggleSidebarGroup('Documents')">Documents<span class="chev">▶</span></div>
+            <div class="menu-group-items">
+                <a href="letterhead.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>Letter head manager</a>
+                <a href="print-center.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>Print center</a>
+                <a href="admin-export.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Data resource</a>
+            </div>
+        </div>
+
+        <div class="menu-group" data-group="Planning">
+            <div class="menu-group-header" onclick="toggleSidebarGroup('Planning')">Planning<span class="chev">▶</span></div>
+            <div class="menu-group-items">
+                <a href="calendar.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</a>
+                <a href="reminder.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Reminders <span class="nav-dot" id="navDotReminders"></span></a>
+                <a href="travel-request.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-3 2v1.5l4.5-1.4L16 22.5V21l-3-2v-5.5z"/></svg>Travel Requests <span class="nav-dot" id="navDotTravel"></span></a>
+            </div>
+        </div>
+
+        <div class="menu-group" data-group="Sales">
+            <div class="menu-group-header" onclick="toggleSidebarGroup('Sales')">Sales<span class="chev">▶</span></div>
+            <div class="menu-group-items">
+                <a href="sales-dashboard.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg>Sales Dashboard</a>
+            </div>
+        </div>
+
+        <a href="settings.html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+        </a>
+    </div>
+<!-- PERSONAL TO-DO -->
+<div class="sidebar-notes">
+    <p>My notes</p>
+    <div id="sidebarTodos"></div>
+    <div class="todo-input-row">
+        <input id="sidebarTodoInput" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addSidebarTodo()" />
+        <button class="todo-add-btn" onclick="addSidebarTodo()">+</button>
+    </div>
+</div>
+</div>
+<script>
+(function() {
+    const KEY = "panache_todos";
+
+    function load() {
+        try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+        catch { return []; }
+    }
+
+    function save(todos) {
+        localStorage.setItem(KEY, JSON.stringify(todos));
+    }
+
+    function render() {
+        const todos = load();
+        const box   = document.getElementById("sidebarTodos");
+        box.innerHTML = "";
+
+        todos.forEach((text, i) => {
+            const row = document.createElement("div");
+            row.className = "todo-row";
+            row.innerHTML = `
+                <div class="todo-check" onclick="completeSidebarTodo(${i})" title="Mark complete — will be removed"></div>
+                <span>${text}</span>`;
+            box.appendChild(row);
+        });
+    }
+
+    window.addSidebarTodo = function() {
+        const inp  = document.getElementById("sidebarTodoInput");
+        const text = inp.value.trim();
+        if (!text) return;
+        const todos = load();
+        todos.push(text);
+        save(todos);
+        inp.value = "";
+        render();
+    };
+
+    window.completeSidebarTodo = function(i) {
+        const circle = document.getElementById("sidebarTodos")
+                               .children[i]
+                               .querySelector(".todo-check");
+        circle.style.background    = "#2E9563";
+        circle.style.borderColor   = "#2E9563";
+        circle.innerHTML           = `<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        setTimeout(() => {
+            const todos = load();
+            todos.splice(i, 1);
+            save(todos);
+            render();
+        }, 500);
+    };
+
+    render();
+})();
+
+window.toggleMobileSidebar = function() {
+    document.getElementById("mainSidebar").classList.toggle("open");
+    document.getElementById("sidebarBackdrop").classList.toggle("active");
+};
+</script>
+<!-- MAIN -->
+<div class="main">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-title">
+            <div class="eyebrow">Administration</div>
+            <h1>Admin Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <div class="profile">
+                <b id="profileName">Admin</b><br>
+                <span id="profileEmail"></span>
+            </div>
+            <div class="bell-wrap" id="bellWrap">
+                <button class="bell-btn" onclick="toggleBellDropdown()">🔔<span class="bell-count" id="bellCount" style="display:none;"></span></button>
+                <div class="bell-dropdown" id="bellDropdown"></div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <!-- REMINDER WIDGET -->
+    <div class="reminder-widget">
+        <div class="reminder-widget-header">
+            <h2>🔔 Upcoming Reminders</h2>
+            <a href="reminder.html">View All</a>
+        </div>
+        <div class="reminder-list" id="reminderWidgetList">
+            <div style="color:var(--text-faint);font-size:14px;">Loading reminders...</div>
+        </div>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <div class="icon-chip"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <h2 id="cardEmployees">—</h2>
+            <p>Total Employees</p>
+        </div>
+        <div class="card blue">
+            <div class="icon-chip"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></div>
+            <h2 id="cardManagers">—</h2>
+            <p>Total Managers</p>
+        </div>
+        <div class="card">
+            <div class="icon-chip"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg></div>
+            <h2 id="cardTasks">—</h2>
+            <p>Total Tasks</p>
+        </div>
+        <div class="card green">
+            <div class="icon-chip"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <h2 id="cardCompleted">—</h2>
+            <p>Completed Tasks</p>
+        </div>
+        <div class="card yellow">
+            <div class="icon-chip"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+            <h2 id="cardPending">—</h2>
+            <p>Pending Tasks</p>
+        </div>
+        <div class="card">
+            <div class="icon-chip"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></div>
+            <h2 id="cardProductivity">—</h2>
+            <p>Team Productivity</p>
+        </div>
+    </div>
+
+    <!-- USERS TABLE (Employees + Managers tabbed) -->
+    <div class="section">
+        <div class="section-header">
+            <h2>User Management</h2>
+            <button class="btn-primary" onclick="openAddUser()">+ Add User</button>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search by name..." oninput="filterUsers()">
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('employees')">Employees</button>
+            <button class="tab"        onclick="switchTab('managers')">Managers</button>
+        </div>
+
+        <!-- EMPLOYEES TAB -->
+        <div id="tabEmployees">
+            <div class="scroll-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Email</th>
+                        <th>Assigned</th><th>Completed</th><th>Productivity</th><th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody id="employeeTable">
+                    <tr><td colspan="7" class="no-data">Loading...</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- MANAGERS TAB -->
+        <div id="tabManagers" style="display:none;">
+            <div class="scroll-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody id="managerTable">
+                    <tr><td colspan="5" class="no-data">Loading...</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+   
+
+    <!-- ALL TASKS -->
+    <div class="section">
+        <div class="section-header">
+            <h2>All Tasks</h2>
+            <button class="btn-primary" onclick="window.location.href='create-task.html'">+ New Task</button>
+        </div>
+        <div class="scroll-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Title</th><th>Assigned To</th>
+                    <th>Priority</th><th>Status</th><th>Due Date</th><th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="taskTable">
+                <tr><td colspan="7" class="no-data">Loading...</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <!-- EMPLOYEE PERFORMANCE -->
+    <div class="section">
+        <h2 style="margin-bottom:18px;">Employee Performance</h2>
+        <div class="scroll-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th><th>Employee</th><th>Assigned</th>
+                    <th>Completed</th><th>Productivity</th><th>Rating</th>
+                </tr>
+            </thead>
+            <tbody id="perfTable">
+                <tr><td colspan="6" class="no-data">Loading...</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+
+    <!-- SYSTEM ALERTS -->
+    <div class="section">
+        <h2 style="margin-bottom:18px;">System Alerts</h2>
+        <div id="alertsBox" class="scroll-list">
+            <div class="alert">Analyzing system...</div>
+        </div>
+    </div>
+
+</div><!-- end .main -->
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="addUserModal">
+    <div class="modal-box">
+        <h2>Add New User</h2>
+
+        <label>Full Name</label>
+        <input type="text" id="newName" placeholder="Full name">
+
+        <label>Email</label>
+        <input type="email" id="newEmail" placeholder="email@company.com">
+
+        <label>Password</label>
+        <input type="password" id="newPassword" placeholder="Password">
+
+        <label>Role</label>
+        <select id="newRole">
+            <option value="employee">Employee</option>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+            <option value="ceo">CEO / Management</option>
+        </select>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeAddUser()">Cancel</button>
+            <button class="btn-save"   onclick="addUser()">Add User</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+    const BASE = "https://backend-n5lk.onrender.com";
+    function authHeaders(extra = {}) {
+        return { "Authorization": "Bearer " + (localStorage.getItem("authToken") || ""), ...extra };
+    }
+
+    // ── SIDEBAR GROUPS (collapsible, remembers open/closed state) ──
+    (function initSidebarGroups() {
+        let state = {};
+        try { state = JSON.parse(localStorage.getItem("sidebarGroupState")) || {}; } catch(e) {}
+        document.querySelectorAll(".menu-group").forEach(g => {
+            const name = g.dataset.group;
+            const hasActive = g.querySelector("a.active") !== null;
+            if (state[name] ?? hasActive) g.classList.add("open");
+        });
+    })();
+    window.toggleSidebarGroup = function(name) {
+        let state = {};
+        try { state = JSON.parse(localStorage.getItem("sidebarGroupState")) || {}; } catch(e) {}
+        const el = document.querySelector(`.menu-group[data-group="${name}"]`);
+        const nowOpen = !el.classList.contains("open");
+        el.classList.toggle("open");
+        state[name] = nowOpen;
+        localStorage.setItem("sidebarGroupState", JSON.stringify(state));
+    };
+
+    // ── PROFILE ──────────────────────────────────────────────
+    document.getElementById("profileName").innerHTML  = localStorage.getItem("userName") || "Admin";
+    document.getElementById("profileEmail").innerHTML = localStorage.getItem("userEmail") || "";
+
+    function logout() { localStorage.clear(); window.location.href = "index.html"; }
+
+    function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    function formatDate(raw) {
+        if (!raw) return "—";
+        const d = new Date(raw);
+        return isNaN(d) ? raw : d.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+    }
+
+    function barColor(s) { return s >= 75 ? "green" : s >= 40 ? "" : "red"; }
+
+    function ratingBadge(s) {
+        if (s >= 75) return `<span class="badge badge-green">High</span>`;
+        if (s >= 40) return `<span class="badge badge-yellow">Medium</span>`;
+        return `<span class="badge badge-red">Low</span>`;
+    }
+
+    function statusBadge(status) {
+        const map = {
+            "Assigned":       "badge-blue",
+            "In Progress":    "badge-yellow",
+            "Pending Review": "badge-orange",
+            "Completed":      "badge-green"
+        };
+        return `<span class="badge ${map[status] || 'badge-blue'}">${status}</span>`;
+    }
+
+    function priorityBadge(p) {
+        const map = { "Low":"badge-blue", "Medium":"badge-yellow", "High":"badge-orange", "Critical":"badge-red" };
+        return `<span class="badge ${map[p] || 'badge-blue'}">${p}</span>`;
+    }
+
+    // ── STORE DATA FOR FILTERING ──────────────────────────────
+    let allEmployees = [];
+    let allManagers  = [];
+    let currentTab   = "employees";
+
+    // ── TABS ─────────────────────────────────────────────────
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        event.target.classList.add("active");
+        document.getElementById("tabEmployees").style.display = tab === "employees" ? "" : "none";
+        document.getElementById("tabManagers").style.display  = tab === "managers"  ? "" : "none";
+        document.getElementById("searchInput").value = "";
+        filterUsers();
+    }
+
+    function filterUsers() {
+        const q = document.getElementById("searchInput").value.toLowerCase();
+        if (currentTab === "employees") {
+            renderEmployees(allEmployees.filter(e => e.full_name.toLowerCase().includes(q)));
+        } else {
+            renderManagers(allManagers.filter(m => m.full_name.toLowerCase().includes(q)));
+        }
+    }
+
+    // ── LOAD STATS ────────────────────────────────────────────
+    async function loadStats() {
+        try {
+            const res  = await fetch(`${BASE}/dashboard-summary`);
+            const data = await res.json();
+
+            document.getElementById("cardEmployees").innerHTML   = data.employees;
+            document.getElementById("cardTasks").innerHTML       = data.tasks;
+            document.getElementById("cardCompleted").innerHTML   = data.completed;
+            document.getElementById("cardProductivity").innerHTML = data.productivity + "%";
+            document.getElementById("cardPending").innerHTML     = data.tasks - data.completed;
+
+            // Managers count comes from /employees-style fetch below
+        } catch(e) { console.error("loadStats:", e); }
+    }
+
+    // ── LOAD EMPLOYEES ────────────────────────────────────────
+    async function loadEmployees() {
+        try {
+            const [empRes, perfRes] = await Promise.all([
+                fetch(`${BASE}/employees`),
+                fetch(`${BASE}/employee-performance`)
+            ]);
+            const employees = await empRes.json();
+            const perf      = await perfRes.json();
+
+            // Merge performance into employee records
+            const perfMap = {};
+            perf.forEach(p => perfMap[p.id] = p);
+
+            allEmployees = employees.map(e => ({
+                ...e,
+                assigned:  perfMap[e.id]?.assigned  ?? 0,
+                completed: perfMap[e.id]?.completed ?? 0,
+                score:     perfMap[e.id]?.score     ?? 0
+            }));
+
+            renderEmployees(allEmployees);
+        } catch(e) { console.error("loadEmployees:", e); }
+    }
+
+    function renderEmployees(list) {
+        if (!list.length) {
+            document.getElementById("employeeTable").innerHTML =
+                `<tr><td colspan="7" class="no-data">No employees found.</td></tr>`;
+            return;
+        }
+        document.getElementById("employeeTable").innerHTML = list.map(e => `
+            <tr>
+                <td>${e.id}</td>
+                <td><b>${e.full_name}</b></td>
+                <td>${e.email}</td>
+                <td>${e.assigned}</td>
+                <td>${e.completed}</td>
+                <td>
+                    <div class="mini-bar-wrap">
+                        <div class="mini-bar-track">
+                            <div class="mini-bar-fill ${barColor(e.score)}" style="width:${e.score}%"></div>
+                        </div>
+                        <span class="mini-bar-label">${e.score}%</span>
+                    </div>
+                </td>
+                <td><button class="btn-danger" onclick="deleteUser(${e.id}, '${e.full_name}')">Delete</button></td>
+            </tr>`).join("");
+    }
+
+    // ── LOAD MANAGERS ─────────────────────────────────────────
+    async function loadManagers() {
+
+    try {
+
+        const response =
+        await fetch(`${BASE}/managers`);
+
+        const managers =
+        await response.json();
+
+        allManagers = managers;
+
+        document.getElementById("cardManagers").innerHTML =
+        managers.length;
+
+        renderManagers(allManagers);
+
+    }
+
+    catch(e){
+
+        console.error("loadManagers:", e);
+
+        document.getElementById("managerTable").innerHTML =
+        `
+        <tr>
+            <td colspan="5" class="no-data">
+                Could not load managers.
+            </td>
+        </tr>
+        `;
+    }
+}
+function renderManagers(list) {
+        if (!list.length) {
+            document.getElementById("managerTable").innerHTML =
+                `<tr><td colspan="5" class="no-data">No managers found.</td></tr>`;
+            return;
+        }
+        document.getElementById("managerTable").innerHTML = list.map(m => `
+            <tr>
+                <td>${m.id}</td>
+                <td><b>${m.full_name}</b></td>
+                <td>${m.email}</td>
+                <td><span class="badge badge-blue">Manager</span></td>
+                <td><button class="btn-danger" onclick="deleteUser(${m.id}, '${m.full_name}')">Delete</button></td>
+            </tr>`).join("");
+    }
+
+    
+    // ── LOAD ALL TASKS ────────────────────────────────────────
+    async function loadTasks() {
+        try {
+            const res   = await fetch(`${BASE}/all-tasks`);
+            const tasks = await res.json();
+
+            if (!tasks.length) {
+                document.getElementById("taskTable").innerHTML =
+                    `<tr><td colspan="7" class="no-data">No tasks found.</td></tr>`;
+                return;
+            }
+
+            document.getElementById("taskTable").innerHTML = tasks.map(t => `
+                <tr>
+                    <td>${t.id}</td>
+                    <td><b>${t.title}</b></td>
+                    <td>${t.assigned_to}</td>
+                    <td>${priorityBadge(t.priority)}</td>
+                    <td>${statusBadge(t.status)}</td>
+                    <td>${formatDate(t.due_date)}</td>
+                    <td><button class="btn-danger" onclick="deleteTask(${t.id})">Delete</button></td>
+                </tr>`).join("");
+
+            // Build system alerts from task data
+            buildAlerts(tasks);
+
+        } catch(e) { console.error("loadTasks:", e); }
+    }
+
+    // ── DELETE TASK ───────────────────────────────────────────
+    async function deleteTask(taskId) {
+        if (!confirm("Delete this task? This cannot be undone.")) return;
+        try {
+            const res  = await fetch(`${BASE}/delete-task?task_id=${taskId}`, { method: "POST", headers: authHeaders() });
+            const data = await res.json();
+            if (data.success) { showToast("Task deleted."); loadTasks(); loadStats(); }
+        } catch(e) { showToast("Failed to delete task."); }
+    }
+
+    // ── DELETE USER ───────────────────────────────────────────
+    async function deleteUser(userId, name) {
+        if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+        try {
+            const res  = await fetch(`${BASE}/delete-user?user_id=${userId}`, { method: "POST", headers: authHeaders() });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`${name} removed.`);
+                loadEmployees();
+                loadManagers();
+                loadStats();
+            } else {
+                showToast(data.message || `Delete failed (server responded but did not confirm success).`);
+            }
+        } catch(e) {
+            console.error("deleteUser failed:", e);
+            showToast(`Could not reach server to delete ${name}. Check your connection.`);
+        }
+    }
+
+    // ── ADD USER MODAL ────────────────────────────────────────
+    function openAddUser()  { document.getElementById("addUserModal").classList.add("active"); }
+    function closeAddUser() { document.getElementById("addUserModal").classList.remove("active"); }
+
+    document.getElementById("addUserModal").addEventListener("click", function(e) {
+        if (e.target === this) closeAddUser();
+    });
+
+    async function addUser() {
+        const name     = document.getElementById("newName").value.trim();
+        const email    = document.getElementById("newEmail").value.trim();
+        const password = document.getElementById("newPassword").value.trim();
+        const role     = document.getElementById("newRole").value;
+
+        if (!name || !email || !password) { showToast("All fields are required."); return; }
+
+        try {
+            const res    = await fetch(`${BASE}/register`, {
+                method: "POST",
+                headers: authHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ fullname: name, email, password, role })
+            });
+            const data   = await res.json();
+
+            if (data.success) {
+                showToast(`${role.charAt(0).toUpperCase()+role.slice(1)} "${name}" added.`);
+                closeAddUser();
+                document.getElementById("newName").value     = "";
+                document.getElementById("newEmail").value    = "";
+                document.getElementById("newPassword").value = "";
+                loadEmployees();
+                loadManagers();
+                loadStats();
+            } else {
+                showToast(data.message || "Failed to add user.");
+            }
+        } catch(e) { showToast("Network error. Please try again."); }
+    }
+
+    // ── EMPLOYEE PERFORMANCE ──────────────────────────────────
+    async function loadPerformance() {
+        try {
+            const res  = await fetch(`${BASE}/employee-performance`);
+            const data = await res.json();
+
+            if (!data.length) {
+                document.getElementById("perfTable").innerHTML =
+                    `<tr><td colspan="6" class="no-data">No data yet.</td></tr>`;
+                return;
+            }
+
+            data.sort((a,b) => b.score - a.score);
+            document.getElementById("perfTable").innerHTML = data.map((e, i) => `
+                <tr>
+                    <td><b style="color:var(--brass-dark);">${i+1}</b></td>
+                    <td><b>${e.name}</b></td>
+                    <td>${e.assigned}</td>
+                    <td>${e.completed}</td>
+                    <td>
+                        <div class="mini-bar-wrap">
+                            <div class="mini-bar-track">
+                                <div class="mini-bar-fill ${barColor(e.score)}" style="width:${e.score}%"></div>
+                            </div>
+                            <span class="mini-bar-label">${e.score}%</span>
+                        </div>
+                    </td>
+                    <td>${ratingBadge(e.score)}</td>
+                </tr>`).join("");
+        } catch(e) { console.error("loadPerformance:", e); }
+    }
+
+    
+
+    // ── SYSTEM ALERTS (derived from task data) ────────────────
+    function buildAlerts(tasks) {
+        const alerts  = [];
+        const today   = new Date();
+
+        const overdue = tasks.filter(t =>
+            t.status !== "Completed" && new Date(t.due_date) < today
+        );
+        if (overdue.length) {
+            alerts.push({ msg: `⚠️ ${overdue.length} task${overdue.length>1?"s are":" is"} overdue.`, cls: "alert alert-red" });
+        }
+
+        const pendingReview = tasks.filter(t => t.status === "Pending Review");
+        if (pendingReview.length) {
+            alerts.push({ msg: `🕐 ${pendingReview.length} task${pendingReview.length>1?"s are":" is"} awaiting manager review.`, cls: "alert" });
+        }
+
+        const dueSoon = tasks.filter(t => {
+            if (t.status === "Completed") return false;
+            const days = Math.ceil((new Date(t.due_date) - today) / 86400000);
+            return days >= 0 && days <= 2;
+        });
+        if (dueSoon.length) {
+            alerts.push({ msg: `🔔 ${dueSoon.length} task${dueSoon.length>1?"s are":" is"} due within 2 days.`, cls: "alert" });
+        }
+
+        if (!alerts.length) {
+            alerts.push({ msg: "✅ All systems normal. No urgent alerts.", cls: "alert" });
+        }
+
+        document.getElementById("alertsBox").innerHTML =
+            alerts.map(a => `<div class="${a.cls}">${a.msg}</div>`).join("");
+    }
+
+
+    async function loadSalesReminder() {
+        // Disabled: /sales/reminder-status was a Railway-only endpoint that was
+        // never ported to the Render/Neon backend. Re-enable once a matching
+        // GET /sales/reminder-status route exists in main.py.
+        return;
+    }
+
+    // ── INIT — load everything in parallel ───────────────────
+    Promise.all([
+        loadStats(),
+        loadEmployees(),
+        loadManagers(),
+        loadTasks(),
+        loadPerformance(),
+        loadSalesReminder(),
+    ]);
+</script>
+
+
+<script>
+(function() {
+    const RBASE = "https://backend-n5lk.onrender.com";
+    const ruid  = localStorage.getItem("userId");
+    const rrole = localStorage.getItem("userRole") || "employee";
+    if (!ruid) return;
+
+    function priorityClass(p) {
+        if (p === "Critical") return "crit";
+        if (p === "High") return "high";
+        if (p === "Medium") return "med";
+        return "low";
+    }
+    function dot(p) {
+        if (p === "Critical" || p === "High") return "🔴";
+        if (p === "Medium") return "🟠";
+        return "🟡";
+    }
+    function lineFor(days) {
+        if (days < 0) return `Overdue by ${Math.abs(days)} day(s)`;
+        if (days === 0) return "Due Today";
+        if (days === 1) return "Due Tomorrow";
+        return `Due in ${days} Days`;
+    }
+
+    async function loadWidgetAndBell() {
+        let items = [];
+        try {
+            const res = await fetch(`${RBASE}/reminders/today?user_id=${ruid}&role=${rrole}`);
+            items = await res.json();
+        } catch (e) { items = []; }
+
+        renderWidget(items);
+        renderBell(items);
+        applyNavDot(items);
+    }
+
+    function applyNavDot(items) {
+        const hasTravel = (items || []).some(i => i.is_travel_request);
+        const d1 = document.getElementById("navDotReminders");
+        const d2 = document.getElementById("navDotTravel");
+        if (d1) d1.style.display = hasTravel ? "inline-block" : "none";
+        if (d2) d2.style.display = hasTravel ? "inline-block" : "none";
+    }
+
+    function renderWidget(items) {
+        const list = document.getElementById("reminderWidgetList");
+        if (!list) return;
+        if (!items || items.length === 0) {
+            list.innerHTML = `<div style="color:var(--text-faint);font-size:14px;padding:6px 2px;">No reminders today.</div>`;
+            return;
+        }
+        list.innerHTML = items.slice(0, 6).map(r => `
+            <div class="reminder-item ${priorityClass(r.priority)}">
+                <span class="reminder-dot">${dot(r.priority)}</span>
+                <div class="reminder-item-body">
+                    <div class="reminder-item-title">${r.title}</div>
+                    <div class="reminder-item-sub">${r.category} • ${lineFor(r.days_remaining)}</div>
+                </div>
+                ${r.amount ? `<div class="reminder-item-amt">₹${Number(r.amount).toLocaleString("en-IN")}</div>` : ""}
+            </div>
+        `).join("");
+    }
+
+    function renderBell(items) {
+        const countEl = document.getElementById("bellCount");
+        const dropEl  = document.getElementById("bellDropdown");
+        if (!countEl || !dropEl) return;
+
+        if (!items || items.length === 0) {
+            countEl.style.display = "none";
+            dropEl.innerHTML = `<div class="bell-dropdown-header">Notifications</div><div class="bell-empty">No reminders today.</div>`;
+            return;
+        }
+        countEl.style.display = "flex";
+        countEl.innerText = items.length > 9 ? "9+" : items.length;
+
+        dropEl.innerHTML = `<div class="bell-dropdown-header">Reminders & Notifications</div>` +
+            items.map(r => `
+                <div class="bell-item" onclick="window.location.href='reminder.html'">
+                    <div class="bell-item-title">${dot(r.priority)} ${r.title}</div>
+                    <div class="bell-item-sub">${r.category} • ${lineFor(r.days_remaining)}</div>
+                </div>
+            `).join("");
+    }
+
+    window.loadWidgetAndBell = loadWidgetAndBell;
+
+    window.toggleBellDropdown = function() {
+        document.getElementById("bellDropdown").classList.toggle("active");
+    };
+    document.addEventListener("click", function(e) {
+        const wrap = document.getElementById("bellWrap");
+        if (wrap && !wrap.contains(e.target)) {
+            document.getElementById("bellDropdown").classList.remove("active");
+        }
+    });
+
+    loadWidgetAndBell();
+})();
+
+/* ================= AUTO REFRESH (Every 20 Seconds) ================= */
+
+let autoRefreshInterval;
+
+async function autoRefresh() {
+    try {
+        // Skip a background refresh while any modal is open, so we don't
+        // wipe out an in-progress form, review, or details view.
+        const modalOpen =
+            document.querySelector(".modal-overlay.active") ||
+            [...document.querySelectorAll('[id$="Modal"]')].some(
+                el => getComputedStyle(el).display === "flex"
+            );
+        if (modalOpen) return;
+
+        // Manager Dashboard
+        if (typeof refreshAll === "function") {
+            await refreshAll();
+            if (typeof loadWidgetAndBell === "function") await loadWidgetAndBell();
+            return;
+        }
+
+        // Employee Dashboard
+        if (typeof loadTasks === "function") await loadTasks();
+        if (typeof loadProductivity === "function") await loadProductivity();
+        if (typeof loadNotifications === "function") await loadNotifications();
+        if (typeof loadStats === "function") await loadStats();
+        if (typeof loadReminders === "function") await loadReminders();
+        if (typeof loadCalendar === "function") await loadCalendar();
+
+        // Team Pages
+        if (typeof loadTeam === "function") await loadTeam();
+        if (typeof loadEmployees === "function") await loadEmployees();
+
+        // Admin Dashboard
+        if (typeof loadManagers === "function") await loadManagers();
+        if (typeof loadUsers === "function") await loadUsers();
+        if (typeof loadProjects === "function") await loadProjects();
+        if (typeof loadPerformance === "function") await loadPerformance();
+
+        // Sales
+        if (typeof loadWeekData === "function") await loadWeekData();
+        if (typeof loadHistory === "function") await loadHistory();
+        if (typeof loadSalesReminder === "function") await loadSalesReminder();
+
+        // Notification bell / reminders widget (shared across dashboards)
+        if (typeof loadWidgetAndBell === "function") await loadWidgetAndBell();
+
+    } catch (err) {
+        console.error("Auto Refresh Error:", err);
+    }
+}
+
+function startAutoRefresh() {
+    autoRefresh(); // Refresh immediately
+    autoRefreshInterval = setInterval(autoRefresh, 20000);
+}
+
+function stopAutoRefresh() {
+    clearInterval(autoRefreshInterval);
+}
+
+// Pause when tab is hidden
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        stopAutoRefresh();
+    } else {
+        startAutoRefresh();
+    }
+});
+
+// Start polling
+startAutoRefresh();
+
+/* ================================================================ */
+</script>
+
+
+<!-- PWA: installable app support -->
+<button id="pwaInstallBtn" onclick="pwaInstallApp()">⬇ Install App</button>
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("service-worker.js").catch(err =>
+                console.warn("Service worker registration failed:", err)
+            );
+        });
+    }
+
+    let pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        pwaDeferredPrompt = e;
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "flex";
+    });
+
+    function pwaInstallApp() {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (!pwaDeferredPrompt) return;
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.finally(() => {
+            pwaDeferredPrompt = null;
+            if (btn) btn.style.display = "none";
+        });
+    }
+
+    window.addEventListener("appinstalled", () => {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "none";
+    });
+</script>
+
+</body>
+</html>

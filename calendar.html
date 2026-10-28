@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar | Panache WMS</title>
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role) { window.location.href = "index.html"; }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        /* ── RESET & BASE ── */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-body); }
+        body { display: flex; background: var(--paper); min-height: 100vh; }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 260px; height: 100vh; background: var(--ink);
+            color: white; position: fixed; top: 0; left: 0;
+            padding: 20px; display: flex; flex-direction: column;
+            overflow-y: auto; z-index: 100;
+        }
+        .logo { font-size: 22px; font-weight: bold; margin-bottom: 30px; color: #fff; }
+        .menu a {
+            display: flex; align-items: center; gap: 10px;
+            color: white; text-decoration: none; padding: 12px;
+            margin-bottom: 6px; border-radius: 8px; transition: .2s; font-size: 14px;
+        }
+        .menu a:hover, .menu a.active { background: var(--brass); }
+
+
+        /* Mini todo in sidebar */
+        .sidebar-notes { margin-top: auto; padding-top: 20px; border-top: .5px solid rgba(255,255,255,.12); }
+        .sidebar-notes-label {
+            font-size: 11px; font-weight: 500; color: rgba(255,255,255,.4);
+            letter-spacing: .6px; text-transform: uppercase; margin-bottom: 10px;
+        }
+        #sidebarTodos { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+        .sidebar-todo-add { display: flex; gap: 6px; margin-top: 10px; }
+        .sidebar-todo-add input {
+            flex: 1; background: rgba(255,255,255,.08); border: .5px solid rgba(255,255,255,.15);
+            border-radius: 6px; padding: 6px 8px; font-size: 12px; color: #fff; outline: none;
+        }
+        .sidebar-todo-add button {
+            width: 28px; height: 28px; border-radius: 6px; background: var(--brass);
+            border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; flex-shrink: 0;
+        }
+
+        /* ── MAIN ── */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 28px; }
+
+        /* ── HEADER ── */
+        .page-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px;
+        }
+        .page-header h1 { color: var(--ink); font-size: 26px; font-weight: 700; }
+        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .profile-badge {
+            background: white; padding: 8px 18px; border-radius: 10px;
+            font-weight: 600; font-size: 14px; color: var(--ink);
+        }
+        .btn-logout {
+            background: var(--danger); color: white; border: none;
+            padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 14px;
+        }
+        .btn-logout:hover { background: color-mix(in srgb, var(--danger) 80%, black); }
+        .btn-new-meeting {
+            background: var(--brass); color: white; border: none;
+            padding: 9px 18px; border-radius: 8px; cursor: pointer;
+            font-size: 14px; font-weight: 600;
+        }
+        .btn-new-meeting:hover { background: var(--brass-dark); }
+        /* Add Task button */
+        .btn-new-task {
+            background: var(--purple); color: white; border: none;
+            padding: 9px 18px; border-radius: 8px; cursor: pointer;
+            font-size: 14px; font-weight: 600;
+        }
+        .btn-new-task:hover { background: color-mix(in srgb, var(--purple) 80%, black); }
+
+        /* ── VIEW TABS (Meeting / Task) ── */
+        .view-mode-tabs {
+            display: flex; gap: 4px; background: var(--surface-muted);
+            border-radius: 8px; padding: 4px; margin-bottom: 20px; width: fit-content;
+        }
+        .view-mode-tab {
+            padding: 7px 20px; border-radius: 6px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: 600; color: var(--text-muted); background: transparent; transition: .15s;
+        }
+        .view-mode-tab.active { background: white; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+
+        /* ── CALENDAR LAYOUT ── */
+        .calendar-wrapper {
+            background: white; border-radius: 16px;
+            box-shadow: 0 2px 14px rgba(0,0,0,.07); overflow: hidden;
+        }
+
+        /* ── CALENDAR TOOLBAR ── */
+        .cal-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 24px; border-bottom: 1px solid var(--border-soft);
+        }
+        .cal-nav { display: flex; align-items: center; gap: 10px; }
+        .cal-nav button {
+            background: var(--surface-muted); border: none; border-radius: 8px;
+            width: 34px; height: 34px; cursor: pointer; font-size: 18px;
+            display: flex; align-items: center; justify-content: center; color: var(--text); transition: .15s;
+        }
+        .cal-nav button:hover { background: var(--brass); color: white; }
+        .cal-title { font-size: 20px; font-weight: 700; color: var(--ink); min-width: 200px; text-align: center; }
+        .cal-view-tabs { display: flex; gap: 4px; background: var(--surface-muted); border-radius: 8px; padding: 4px; }
+        .cal-view-tab {
+            padding: 6px 16px; border-radius: 6px; border: none; cursor: pointer;
+            font-size: 13px; font-weight: 600; color: var(--text-muted); background: transparent; transition: .15s;
+        }
+        .cal-view-tab.active { background: white; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+        .btn-today {
+            background: white; border: 1.5px solid var(--border); border-radius: 8px;
+            padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 600;
+            color: var(--text); transition: .15s;
+        }
+        .btn-today:hover { border-color: var(--brass); color: var(--brass); }
+
+        /* ── MONTH VIEW ── */
+        #monthView { display: block; }
+        .month-grid { padding: 0; }
+        .month-weekdays {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .month-weekday {
+            text-align: center; padding: 10px; font-size: 12px;
+            font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .5px;
+        }
+        .month-days { display: grid; grid-template-columns: repeat(7, 1fr); }
+        .month-day {
+            min-height: 110px; border-right: 1px solid var(--border-soft);
+            border-bottom: 1px solid var(--border-soft); padding: 8px; cursor: pointer;
+            transition: background .15s; position: relative;
+        }
+        .month-day:hover { background: var(--surface-muted); }
+        .month-day:nth-child(7n) { border-right: none; }
+        .month-day.other-month { background: var(--surface-muted); }
+        .month-day.other-month .day-num { color: var(--border); }
+        .month-day.today { background: var(--brass-tint); }
+        .month-day.today .day-num {
+            background: var(--brass); color: white; width: 28px; height: 28px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+        .day-num {
+            font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px;
+            width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+        }
+        .month-meeting-pill {
+            display: block; padding: 2px 7px; border-radius: 4px;
+            font-size: 11px; font-weight: 600; margin-bottom: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+        }
+        /* Task pills on month (purple-ish) */
+        .month-task-pill {
+            display: block; padding: 2px 7px; border-radius: 4px;
+            font-size: 11px; font-weight: 600; margin-bottom: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+            background: var(--purple-tint); color: var(--purple); border-left: 3px solid var(--purple);
+        }
+        .month-more { font-size: 11px; color: var(--text-muted); padding: 2px 4px; }
+
+        /* ── DAY VIEW ── */
+        #dayView { display: none; }
+        .day-view-header {
+            display: flex; align-items: center; gap: 14px;
+            padding: 16px 24px; border-bottom: 1px solid var(--border-soft);
+        }
+        .back-to-month {
+            background: var(--surface-muted); border: none; border-radius: 8px;
+            padding: 7px 14px; cursor: pointer; font-size: 13px;
+            font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; transition: .15s;
+        }
+        .back-to-month:hover { background: var(--border-soft); }
+        .day-view-title { font-size: 18px; font-weight: 700; color: var(--ink); }
+        .day-view-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+        .day-schedule {
+            display: grid; grid-template-columns: 64px 1fr;
+            height: calc(100vh - 280px); overflow-y: auto; position: relative;
+        }
+        .time-gutter { border-right: 1px solid var(--border-soft); }
+        .time-label {
+            height: 48px; display: flex; align-items: flex-start;
+            justify-content: flex-end; padding: 4px 10px 0 0;
+            font-size: 11px; color: var(--text-faint); font-weight: 500;
+        }
+        .slots-column { position: relative; }
+        .slot-row {
+            height: 48px; border-bottom: 1px solid var(--surface-muted);
+            position: relative; cursor: pointer; transition: background .1s;
+        }
+        .slot-row:nth-child(odd) { border-bottom: 1px dashed var(--surface-muted); }
+        .slot-row:hover { background: var(--brass-tint); }
+        .slot-row.selecting { background: var(--brass-tint); }
+        .slot-row.busy { background: var(--danger-tint); cursor: not-allowed; }
+
+        /* Meeting blocks */
+        .meeting-block {
+            position: absolute; left: 4px; right: 4px;
+            border-radius: 8px; padding: 6px 10px;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            z-index: 10; overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,.12);
+            transition: transform .1s, box-shadow .1s;
+            border-left: 3px solid rgba(0,0,0,.15);
+        }
+        .meeting-block:hover { transform: translateX(1px); box-shadow: 0 3px 10px rgba(0,0,0,.15); }
+        .meeting-block .mb-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .meeting-block .mb-time  { font-size: 11px; opacity: .75; margin-top: 2px; }
+        .meeting-block .mb-loc   { font-size: 11px; opacity: .65; display: flex; align-items: center; gap: 3px; margin-top: 1px; }
+
+        /* Task blocks (personal calendar tasks) */
+        .task-block {
+            position: absolute; left: 4px; right: 60px;
+            border-radius: 8px; padding: 6px 10px;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            z-index: 10; overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,.12);
+            border-left: 3px solid;
+        }
+        .task-block .tb-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .task-block .tb-time  { font-size: 11px; opacity: .75; margin-top: 2px; }
+        .task-block .tb-delete {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: rgba(0,0,0,.1); border: none; border-radius: 4px;
+            width: 22px; height: 22px; cursor: pointer; font-size: 12px;
+            display: flex; align-items: center; justify-content: center; color: inherit;
+        }
+        .task-block .tb-delete:hover { background: rgba(220,38,38,.2); color: var(--danger); }
+
+        /* Current time line */
+        .current-time-line {
+            position: absolute; left: 0; right: 0;
+            height: 2px; background: var(--danger); z-index: 20; pointer-events: none;
+        }
+        .current-time-line::before {
+            content: ''; position: absolute; left: -5px; top: -4px;
+            width: 10px; height: 10px; border-radius: 50%; background: var(--danger);
+        }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.5); z-index: 1000;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white; border-radius: 16px; padding: 28px;
+            width: 520px; max-width: 96vw; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 16px 48px rgba(0,0,0,.22);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+        .modal-header h2 { color: var(--ink); font-size: 18px; }
+        .modal-close {
+            background: var(--surface-muted); border: none; border-radius: 8px;
+            width: 32px; height: 32px; cursor: pointer; font-size: 18px; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-close:hover { background: var(--border-soft); }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block; margin-bottom: 6px;
+            font-weight: 600; color: var(--text); font-size: 13px;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%; padding: 10px 12px;
+            border: 1.5px solid var(--border-soft); border-radius: 8px;
+            font-size: 14px; color: var(--ink); outline: none; transition: border-color .15s; background: white;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus { border-color: var(--brass); }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .participants-list {
+            border: 1.5px solid var(--border-soft); border-radius: 8px;
+            max-height: 160px; overflow-y: auto; padding: 8px;
+        }
+        .participant-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 6px; cursor: pointer; transition: background .1s;
+        }
+        .participant-item:hover { background: var(--surface-muted); }
+        .participant-item input[type=checkbox] { accent-color: var(--brass); width: 16px; height: 16px; }
+        .participant-name { font-size: 14px; color: var(--text); }
+        .participant-role { font-size: 11px; color: var(--text-faint); margin-left: auto; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+        .btn-cancel {
+            background: var(--surface-muted); color: var(--text); border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;
+        }
+        .btn-save {
+            background: var(--brass); color: white; border: none;
+            padding: 10px 24px; border-radius: 8px; cursor: pointer;
+            font-size: 14px; font-weight: 700;
+        }
+        .btn-save:hover { background: var(--brass-dark); }
+        .btn-save:disabled { background: var(--brass-tint); cursor: not-allowed; }
+        .btn-save-task {
+            background: var(--purple); color: white; border: none;
+            padding: 10px 24px; border-radius: 8px; cursor: pointer;
+            font-size: 14px; font-weight: 700;
+        }
+        .btn-save-task:hover { background: color-mix(in srgb, var(--purple) 80%, black); }
+        .btn-save-task:disabled { background: color-mix(in srgb, var(--purple) 55%, white); cursor: not-allowed; }
+        .time-range-display {
+            background: var(--brass-tint); border: 1.5px solid var(--brass-tint);
+            border-radius: 8px; padding: 10px 14px;
+            font-size: 14px; color: var(--brass-dark); font-weight: 600;
+            margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+
+        /* Color picker for tasks */
+        .color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+        .color-swatch {
+            width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent; transition: border-color .15s, transform .15s;
+        }
+        .color-swatch:hover { transform: scale(1.15); }
+        .color-swatch.selected { border-color: var(--ink); }
+
+
+
+        /* ── MEETING DETAIL MODAL ── */
+        .meeting-detail { padding: 4px 0; }
+        .detail-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+        .detail-icon { color: var(--text-muted); margin-top: 2px; flex-shrink: 0; }
+        .detail-label { font-size: 12px; color: var(--text-faint); margin-bottom: 2px; }
+        .detail-value { font-size: 14px; color: var(--ink); }
+        .attendee-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .attendee-chip {
+            background: var(--brass-tint); color: var(--brass-dark);
+            border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 600;
+        }
+        .status-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 99px;
+            font-size: 12px; font-weight: 700;
+        }
+        .status-confirmed { background: var(--success-tint); color: var(--success); }
+        .status-pending   { background: var(--warning-tint); color: color-mix(in srgb, var(--warning) 70%, black); }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed; bottom: 28px; right: 28px;
+            background: var(--ink); color: white; padding: 13px 20px;
+            border-radius: 10px; font-size: 14px; opacity: 0;
+            transform: translateY(8px); transition: all .28s; z-index: 9999;
+            pointer-events: none; max-width: 320px;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: var(--success); }
+        .toast.error   { background: var(--danger); }
+
+        /* ── MINI CALENDAR (sidebar) ── */
+        .mini-cal { margin-bottom: 20px; }
+        .mini-cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .mini-cal-title { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.85); }
+        .mini-cal-nav button {
+            background: none; border: none; color: rgba(255,255,255,.5);
+            cursor: pointer; font-size: 16px; padding: 0 4px;
+        }
+        .mini-cal-nav button:hover { color: white; }
+        .mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .mini-cal-wd { text-align: center; font-size: 10px; color: rgba(255,255,255,.35); font-weight: 600; padding: 2px; }
+        .mini-cal-day {
+            text-align: center; font-size: 12px; color: rgba(255,255,255,.65);
+            padding: 4px; border-radius: 4px; cursor: pointer;
+        }
+        .mini-cal-day:hover { background: rgba(255,255,255,.1); }
+        .mini-cal-day.today { background: var(--brass); color: white; font-weight: 700; }
+        .mini-cal-day.selected { background: rgba(37,99,235,.5); color: white; }
+        .mini-cal-day.has-event::after {
+            content: ''; display: block; width: 4px; height: 4px;
+            border-radius: 50%; background: var(--brass); margin: 1px auto 0;
+        }
+        .mini-cal-day.other { color: rgba(255,255,255,.2); }
+
+        /* Meeting colors */
+        .color-blue   { background: var(--brass-tint); color: var(--brass-dark); }
+        .color-green  { background: var(--success-tint); color: color-mix(in srgb, var(--success) 78%, black); }
+        .color-purple { background: var(--purple-tint); color: var(--purple); }
+        .color-orange { background: var(--warning-tint); color: color-mix(in srgb, var(--warning) 65%, black); }
+        .color-teal   { background: var(--teal-tint); color: var(--teal); }
+
+        /* Loading spinner */
+        .loading-overlay {
+            position: absolute; inset: 0; background: rgba(255,255,255,.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 50; border-radius: 16px;
+        }
+        .spinner {
+            width: 28px; height: 28px; border: 3px solid var(--border-soft);
+            border-top-color: var(--brass); border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Empty state */
+        .empty-day {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 200px; color: var(--text-faint);
+        }
+        .empty-day svg { margin-bottom: 12px; opacity: .4; }
+        .empty-day p { font-size: 15px; font-weight: 600; }
+        .empty-day span { font-size: 13px; margin-top: 4px; }
+
+        /* Scrollbar */
+        .day-schedule::-webkit-scrollbar { width: 6px; }
+        .day-schedule::-webkit-scrollbar-track { background: transparent; }
+        .day-schedule::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<div class="sidebar">
+    <div class="logo">🏢 Panache WMS</div>
+    <div id="miniCal" class="mini-cal"></div>
+    <nav class="menu" id="sidebarMenu"></nav>
+
+
+    <div class="sidebar-notes">
+        <div class="sidebar-notes-label">Quick Notes</div>
+        <div id="sidebarTodos"></div>
+        <div class="sidebar-todo-add">
+            <input type="text" id="sidebarTodoInput" placeholder="Add a note…" onkeydown="if(event.key==='Enter') addSidebarTodo()">
+            <button onclick="addSidebarTodo()">+</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+    <div class="page-header">
+        <h1>📅 Calendar</h1>
+        <div class="header-actions">
+            <button class="btn-new-task"    onclick="openNewTask()">＋ Add Task</button>
+            <button class="btn-new-meeting" onclick="openNewMeeting()">＋ Schedule Meeting</button>
+            <div class="profile-badge" id="profileBadge">…</div>
+            <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="calendar-wrapper">
+        <!-- TOOLBAR -->
+        <div class="cal-toolbar">
+            <div class="cal-nav">
+                <button onclick="navigate(-1)">‹</button>
+                <button class="btn-today" onclick="goToday()">Today</button>
+                <button onclick="navigate(1)">›</button>
+            </div>
+            <div class="cal-title" id="calTitle">…</div>
+            <div class="cal-view-tabs">
+                <button class="cal-view-tab active" id="tabMonth" onclick="switchView('month')">Month</button>
+                <button class="cal-view-tab" id="tabDay"   onclick="switchView('day')">Day</button>
+            </div>
+        </div>
+
+        <!-- MONTH VIEW -->
+        <div id="monthView">
+            <div class="month-grid">
+                <div class="month-weekdays">
+                    <div class="month-weekday">Sun</div>
+                    <div class="month-weekday">Mon</div>
+                    <div class="month-weekday">Tue</div>
+                    <div class="month-weekday">Wed</div>
+                    <div class="month-weekday">Thu</div>
+                    <div class="month-weekday">Fri</div>
+                    <div class="month-weekday">Sat</div>
+                </div>
+                <div class="month-days" id="monthDays"></div>
+            </div>
+        </div>
+
+        <!-- DAY VIEW -->
+        <div id="dayView">
+            <div class="day-view-header">
+                <button class="back-to-month" onclick="switchView('month')">← Month</button>
+                <div>
+                    <div class="day-view-title" id="dayViewTitle">…</div>
+                    <div class="day-view-subtitle" id="dayViewSubtitle"></div>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:8px">
+                    <button class="back-to-month" onclick="navigateDay(-1)">← Prev</button>
+                    <button class="back-to-month" onclick="navigateDay(1)">Next →</button>
+                </div>
+            </div>
+            <div class="day-schedule" id="daySchedule"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ CREATE MEETING MODAL ══ -->
+<div class="modal-overlay" id="meetingModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>📅 Schedule Meeting</h2>
+            <button class="modal-close" onclick="closeMeetingModal()">✕</button>
+        </div>
+        <div class="time-range-display">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span id="timeRangeText">Select time range</span>
+        </div>
+        <div class="form-group">
+            <label>Meeting Title *</label>
+            <input type="text" id="mtgTitle" placeholder="e.g. Weekly Sales Review">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="mtgDesc" placeholder="Agenda, notes, or context…"></textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="mtgDate">
+            </div>
+            <div class="form-group">
+                <label>Location / Link</label>
+                <input type="text" id="mtgLocation" placeholder="Room, Zoom link…">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Start Time</label>
+                <select id="mtgStartSlot"></select>
+            </div>
+            <div class="form-group">
+                <label>End Time</label>
+                <select id="mtgEndSlot"></select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Participants</label>
+            <div class="participants-list" id="participantsList">
+                <div style="color:var(--text-faint);font-size:13px;padding:8px">Loading users…</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeMeetingModal()">Cancel</button>
+            <button class="btn-save" id="saveMeetingBtn" onclick="saveMeeting()">Save Meeting</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ CREATE TASK MODAL ══ -->
+<div class="modal-overlay" id="taskModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>✅ Add Calendar Task</h2>
+            <button class="modal-close" onclick="closeTaskModal()">✕</button>
+        </div>
+        <div class="time-range-display" style="background:var(--purple-tint);border-color:color-mix(in srgb, var(--purple) 45%, white);color:var(--purple)">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span id="taskTimeRangeText">Select time range</span>
+        </div>
+        <div class="form-group">
+            <label>Task Title *</label>
+            <input type="text" id="taskTitle" placeholder="e.g. Prepare Q3 Report">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="taskDesc" placeholder="Notes, context, links…" style="min-height:60px"></textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="taskDate">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Start Time</label>
+                <select id="taskStartSlot"></select>
+            </div>
+            <div class="form-group">
+                <label>End Time</label>
+                <select id="taskEndSlot"></select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Color</label>
+            <div class="color-picker" id="taskColorPicker"></div>
+            <input type="hidden" id="taskColor" value="var(--purple)">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeTaskModal()">Cancel</button>
+            <button class="btn-save-task" id="saveTaskBtn" onclick="saveTask()">Save Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MEETING DETAIL MODAL ══ -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal" style="width:460px">
+        <div class="modal-header">
+            <h2 id="detailTitle">Meeting Details</h2>
+            <button class="modal-close" onclick="closeDetailModal()">✕</button>
+        </div>
+        <div class="meeting-detail" id="meetingDetail"></div>
+        <div class="modal-footer" style="margin-top:16px">
+            <button class="btn-cancel" onclick="closeDetailModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════════ SCRIPTS ════════════════════════════ -->
+<script>
+const API_BASE = "https://backend-n5lk.onrender.com";
+
+/* ─── STATE ─────────────────────────────────────────── */
+const userId   = parseInt(localStorage.getItem("userId")  || "0");
+const userName = localStorage.getItem("userName")         || "User";
+const userRole = localStorage.getItem("userRole")         || "employee";
+
+let currentView   = "month";
+let viewDate      = new Date();
+let selectedDate  = null;
+let allUsers      = [];
+let monthMeetings = {};   // keyed YYYY-MM-DD → meetings[]
+let monthTasks    = {};   // keyed YYYY-MM-DD → tasks[]
+
+
+let dragStart = null, dragEnd = null, isDragging = false;
+let pendingStart = null, pendingEnd = null;
+let pendingModalType = "meeting"; // "meeting" | "task"
+
+/* ── Task color options ─────────────────────────────── */
+const TASK_COLORS = [
+    { hex: "var(--purple)", label: "Purple" },
+    { hex: "var(--brass)", label: "Blue"   },
+    { hex: "var(--success)", label: "Green"  },
+    { hex: "color-mix(in srgb, var(--warning) 80%, black)", label: "Amber"  },
+    { hex: "var(--danger)", label: "Red"    },
+    { hex: "#0891b2", label: "Cyan"   },
+    { hex: "#be185d", label: "Pink"   },
+    { hex: "var(--text)", label: "Gray"   },
+];
+
+/* ─── INIT ──────────────────────────────────────────── */
+document.addEventListener("DOMContentLoaded", async () => {
+    document.getElementById("profileBadge").textContent = userName;
+    setupSidebar();
+    populateSlotSelects();
+    buildTaskColorPicker();
+    renderMiniCal();
+    renderMonthView();
+    setInterval(drawCurrentTimeLine, 30000);
+    await loadUsers();
+});
+
+/* ─── SIDEBAR ───────────────────────────────────────── */
+function setupSidebar() {
+    const menu  = document.getElementById("sidebarMenu");
+    const links = {
+        admin:    [
+            { href: "admin-dashboard.html",   label: "Dashboard" },
+            { href: "team-chat.html",          label: "💬 Team Chat" },
+            { href: "expense-vouchers.html",   label: "🧾 Expense Vouchers" },
+            { href: "settings.html",           label: "Settings"  },
+            { href: "history.html",            label: "History"   },
+            { href: "sales-dashboard.html",    label: "Sales"     },
+            { href: "calendar.html",           label: "📅 Calendar", active: true },
+        ],
+        manager:  [
+            { href: "manager-dashboard.html",  label: "Dashboard" },
+            { href: "team-chat.html",          label: "💬 Team Chat" },
+            { href: "expense-vouchers.html",   label: "🧾 Expense Vouchers" },
+            { href: "settings.html",           label: "Settings"  },
+            { href: "history.html",            label: "History"   },
+            { href: "sales-dashboard.html",    label: "Sales"     },
+            { href: "calendar.html",           label: "📅 Calendar", active: true },
+        ],
+        employee: [
+            { href: "employee-dashboard.html", label: "Dashboard" },
+            { href: "team-chat.html",          label: "💬 Team Chat" },
+            { href: "expense-vouchers.html",   label: "🧾 Expense Vouchers" },
+            { href: "settings.html",           label: "Settings"  },
+            { href: "history.html",            label: "History"   },
+            { href: "sales-dashboard.html",    label: "Sales"     },
+            { href: "calendar.html",           label: "📅 Calendar", active: true },
+        ],
+        intern: [
+            { href: "intern-dashboard.html",   label: "Dashboard" },
+            { href: "team-chat.html",          label: "💬 Team Chat" },
+            { href: "expense-vouchers.html",   label: "🧾 Expense Vouchers" },
+            { href: "history.html",            label: "History"   },
+            { href: "reminder.html",           label: "Reminders" },
+            { href: "calendar.html",           label: "📅 Calendar", active: true },
+            { href: "settings.html",           label: "Settings"  },
+        ],
+    };
+    const items = links[userRole] || links.employee;
+    menu.innerHTML = items.map(l =>
+        `<a href="${l.href}" ${l.active ? 'class="active"' : ''}>${l.label}</a>`
+    ).join("");
+    renderSidebarTodos();
+}
+
+/* ─── GOOGLE CALENDAR STATUS ────────────────────────── */
+
+/* ─── SIDEBAR TODO ───────────────────────────────────── */
+const TODO_KEY = "panache_todos";
+function loadTodos()  { try { return JSON.parse(localStorage.getItem(TODO_KEY)) || []; } catch { return []; } }
+function saveTodos(t) { localStorage.setItem(TODO_KEY, JSON.stringify(t)); }
+
+function renderSidebarTodos() {
+    const box   = document.getElementById("sidebarTodos");
+    const todos = loadTodos();
+    box.innerHTML = todos.map((text, i) => `
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.8);line-height:1.4;">
+            <div onclick="completeSidebarTodo(${i})" style="width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(255,255,255,.3);flex-shrink:0;cursor:pointer;"></div>
+            <span>${text}</span>
+        </div>`).join("");
+}
+function addSidebarTodo() {
+    const inp  = document.getElementById("sidebarTodoInput");
+    const text = inp.value.trim();
+    if (!text) return;
+    const todos = loadTodos();
+    todos.push(text);
+    saveTodos(todos);
+    inp.value = "";
+    renderSidebarTodos();
+}
+function completeSidebarTodo(i) {
+    setTimeout(() => {
+        const todos = loadTodos();
+        todos.splice(i, 1);
+        saveTodos(todos);
+        renderSidebarTodos();
+    }, 400);
+}
+
+/* ─── SLOT UTILITIES ─────────────────────────────────── */
+function slotToTime(slot) {
+    const h = Math.floor(slot / 2);
+    const m = (slot % 2) * 30;
+    return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+
+function populateSlotSelects() {
+    ["mtgStartSlot","mtgEndSlot","taskStartSlot","taskEndSlot"].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = "";
+        for (let i = 0; i < 48; i++) {
+            sel.innerHTML += `<option value="${i}">${slotToTime(i)}</option>`;
+        }
+    });
+    document.getElementById("mtgStartSlot").value  = 18;
+    document.getElementById("mtgEndSlot").value    = 20;
+    document.getElementById("taskStartSlot").value = 18;
+    document.getElementById("taskEndSlot").value   = 20;
+}
+
+/* ─── COLOR PICKER ───────────────────────────────────── */
+function buildTaskColorPicker() {
+    const picker = document.getElementById("taskColorPicker");
+    picker.innerHTML = TASK_COLORS.map(c => `
+        <div class="color-swatch ${c.hex === "var(--purple)" ? "selected" : ""}"
+             style="background:${c.hex}"
+             title="${c.label}"
+             onclick="selectTaskColor('${c.hex}', this)"></div>
+    `).join("");
+}
+function selectTaskColor(hex, el) {
+    document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("selected"));
+    el.classList.add("selected");
+    document.getElementById("taskColor").value = hex;
+}
+
+/* ─── USER LOADING ───────────────────────────────────── */
+async function loadUsers() {
+    try {
+        const res = await fetch(`${API_BASE}/users`);
+        allUsers  = await res.json();
+    } catch {
+        allUsers = [];
+    }
+    renderParticipantsList();
+}
+
+function renderParticipantsList() {
+    const container = document.getElementById("participantsList");
+    if (!allUsers.length) {
+        container.innerHTML = `<div style="color:var(--text-faint);font-size:13px;padding:8px">No users found</div>`;
+        return;
+    }
+    container.innerHTML = allUsers
+        .filter(u => u.id !== userId)
+        .map(u => `
+            <label class="participant-item">
+                <input type="checkbox" name="participant" value="${u.id}">
+                <span class="participant-name">${u.full_name}</span>
+                <span class="participant-role">${u.role}</span>
+            </label>`)
+        .join("");
+}
+
+function getSelectedParticipants() {
+    return [...document.querySelectorAll('input[name="participant"]:checked')]
+        .map(cb => parseInt(cb.value));
+}
+
+/* ─── MONTH VIEW ─────────────────────────────────────── */
+// Track which months have already been fetched to avoid redundant calls
+const _fetchedMonths = new Set();
+
+// Pure render — never triggers a fetch. Call this after data is already in memory.
+function _paintMonthView() {
+    const year  = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+
+    document.getElementById("calTitle").textContent =
+        viewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+    const firstDay    = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrev  = new Date(year, month, 0).getDate();
+    const today       = new Date();
+    const todayStr    = dateStr(today);
+
+    const container = document.getElementById("monthDays");
+    container.innerHTML = "";
+
+    let cells = [];
+    for (let i = firstDay - 1; i >= 0; i--)
+        cells.push({ day: daysInPrev - i, cur: false, date: new Date(year, month - 1, daysInPrev - i) });
+    for (let d = 1; d <= daysInMonth; d++)
+        cells.push({ day: d, cur: true, date: new Date(year, month, d) });
+    while (cells.length % 7 !== 0)
+        cells.push({ day: cells.length - firstDay - daysInMonth + 1, cur: false, date: new Date(year, month + 1, cells.length - firstDay - daysInMonth + 1) });
+
+    cells.forEach(cell => {
+        const ds  = dateStr(cell.date);
+        const div = document.createElement("div");
+        div.className = "month-day" +
+            (!cell.cur ? " other-month" : "") +
+            (ds === todayStr ? " today" : "");
+        div.onclick = () => openDayView(cell.date);
+
+        const numDiv = document.createElement("div");
+        numDiv.className = "day-num";
+        numDiv.textContent = cell.day;
+        div.appendChild(numDiv);
+
+        // Meetings
+        const meetings = monthMeetings[ds] || [];
+        const colors   = ["color-blue","color-green","color-teal","color-orange"];
+        let pillCount  = 0;
+        meetings.slice(0, 2).forEach((m, i) => {
+            const pill = document.createElement("span");
+            pill.className = `month-meeting-pill ${colors[i % colors.length]}`;
+            pill.textContent = `${slotToTime(m.start_slot)} ${m.title}`;
+            pill.onclick = (e) => { e.stopPropagation(); showMeetingDetail(m); };
+            div.appendChild(pill);
+            pillCount++;
+        });
+
+        // Tasks
+        const tasks = monthTasks[ds] || [];
+        tasks.slice(0, 2 - Math.min(pillCount, 1)).forEach(t => {
+            const pill = document.createElement("span");
+            pill.className = "month-task-pill";
+            pill.textContent = `${slotToTime(t.start_slot)} ${t.title}`;
+            pill.onclick = (e) => { e.stopPropagation(); openDayView(cell.date); };
+            div.appendChild(pill);
+            pillCount++;
+        });
+
+        const total = meetings.length + tasks.length;
+        if (total > pillCount) {
+            const more = document.createElement("div");
+            more.className = "month-more";
+            more.textContent = `+${total - pillCount} more`;
+            div.appendChild(more);
+        }
+
+        container.appendChild(div);
+    });
+
+    renderMiniCal();
+}
+
+// Public entry point: renders immediately from cached data, then fetches fresh data once per month key.
+function renderMonthView() {
+    _paintMonthView();  // instant render with whatever is cached
+
+    const year     = viewDate.getFullYear();
+    const month    = viewDate.getMonth();
+    const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+    if (!_fetchedMonths.has(monthKey)) {
+        _fetchedMonths.add(monthKey);
+        loadMonthData(year, month);
+    }
+}
+
+// Force-refresh current month (called after creating/deleting items)
+function refreshMonthView() {
+    const year     = viewDate.getFullYear();
+    const month    = viewDate.getMonth();
+    const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+    _fetchedMonths.delete(monthKey);  // invalidate cache so next call fetches again
+    loadMonthData(year, month);
+}
+
+async function loadMonthData(year, month) {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
+
+    // Load tasks for the month in one request
+    try {
+        const res  = await fetch(`${API_BASE}/calendar-tasks?user_id=${userId}&month=${monthStr}`);
+        if (res.ok) {
+            const data = await res.json();
+            // Reset tasks for this month
+            for (let d = 1; d <= daysInMonth; d++) {
+                const ds = `${monthStr}-${String(d).padStart(2,"0")}`;
+                monthTasks[ds] = [];
+            }
+            data.forEach(t => {
+                const ds = String(t.task_date).slice(0, 10);
+                if (!monthTasks[ds]) monthTasks[ds] = [];
+                monthTasks[ds].push(t);
+            });
+        }
+    } catch { /* backend unreachable — keep cached data */ }
+
+    // Load meetings per day — batch into a single request if backend supports it,
+    // otherwise fall back to per-day (silently ignoring CORS/network failures).
+    try {
+        const res = await fetch(`${API_BASE}/meetings/month?user_id=${userId}&month=${monthStr}`);
+        if (res.ok) {
+            const data = await res.json();
+            // Reset meetings for this month
+            for (let d = 1; d <= daysInMonth; d++) {
+                const ds = `${monthStr}-${String(d).padStart(2,"0")}`;
+                monthMeetings[ds] = [];
+            }
+            data.forEach(m => {
+                const ds = String(m.meeting_date || m.date).slice(0, 10);
+                if (!monthMeetings[ds]) monthMeetings[ds] = [];
+                monthMeetings[ds].push(m);
+            });
+        } else {
+            throw new Error("month endpoint not available");
+        }
+    } catch {
+        // Fallback: per-day fetch (only fires if month endpoint doesn't exist)
+        const promises = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const ds = `${monthStr}-${String(d).padStart(2,"0")}`;
+            promises.push(
+                fetch(`${API_BASE}/meetings/day?date=${ds}&user_id=${userId}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(data => ({ ds, data }))
+                    .catch(() => ({ ds, data: [] }))
+            );
+        }
+        const results = await Promise.all(promises);
+        results.forEach(({ ds, data }) => { monthMeetings[ds] = data; });
+    }
+
+    // Re-paint once after all data is loaded — no further fetch triggered
+    _paintMonthView();
+}
+
+/* ─── MINI CALENDAR ──────────────────────────────────── */
+let miniCalDate = new Date();
+function renderMiniCal() {
+    const y = miniCalDate.getFullYear();
+    const m = miniCalDate.getMonth();
+    const today = new Date();
+
+    let html = `
+        <div class="mini-cal-header">
+            <span class="mini-cal-title">${miniCalDate.toLocaleDateString("en-US",{month:"short",year:"numeric"})}</span>
+            <div class="mini-cal-nav">
+                <button onclick="miniCalNav(-1)">‹</button>
+                <button onclick="miniCalNav(1)">›</button>
+            </div>
+        </div>
+        <div class="mini-cal-grid">
+            ${["S","M","T","W","T","F","S"].map(d=>`<div class="mini-cal-wd">${d}</div>`).join("")}`;
+
+    const first = new Date(y, m, 1).getDay();
+    const days  = new Date(y, m + 1, 0).getDate();
+
+    for (let i = 0; i < first; i++) html += `<div class="mini-cal-day other"></div>`;
+    for (let d = 1; d <= days; d++) {
+        const dt  = new Date(y, m, d);
+        const ds  = dateStr(dt);
+        const hasEvent = (monthMeetings[ds] || []).length > 0 || (monthTasks[ds] || []).length > 0;
+        const cls = ["mini-cal-day",
+            dateStr(today) === ds ? "today" : "",
+            selectedDate && dateStr(selectedDate) === ds ? "selected" : "",
+            hasEvent ? "has-event" : "",
+        ].join(" ");
+        html += `<div class="${cls}" onclick="miniCalClick(${y},${m},${d})">${d}</div>`;
+    }
+    html += "</div>";
+    document.getElementById("miniCal").innerHTML = html;
+}
+
+function miniCalNav(dir) { miniCalDate.setMonth(miniCalDate.getMonth() + dir); renderMiniCal(); }
+function miniCalClick(y, m, d) { openDayView(new Date(y, m, d)); }
+
+/* ─── DAY VIEW ───────────────────────────────────────── */
+async function openDayView(date) {
+    selectedDate = date;
+    currentView  = "day";
+    miniCalDate  = new Date(date.getFullYear(), date.getMonth(), 1);
+    renderMiniCal();
+
+    document.getElementById("monthView").style.display = "none";
+    document.getElementById("dayView").style.display   = "block";
+    document.getElementById("tabMonth").classList.remove("active");
+    document.getElementById("tabDay").classList.add("active");
+
+    const opts = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+    document.getElementById("calTitle").textContent     = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    document.getElementById("dayViewTitle").textContent = date.toLocaleDateString("en-US", opts);
+    document.getElementById("dayViewSubtitle").textContent = "Click or drag slots to add a meeting or task";
+
+    await renderDayView(date);
+}
+
+async function renderDayView(date) {
+    const schedule = document.getElementById("daySchedule");
+    schedule.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+
+    const ds = dateStr(date);
+    let meetings = [], tasks = [];
+
+    try {
+        const [mRes, tRes] = await Promise.all([
+            fetch(`${API_BASE}/meetings/day?date=${ds}&user_id=${userId}`),
+            fetch(`${API_BASE}/calendar-tasks?user_id=${userId}&date=${ds}`)
+        ]);
+        meetings = await mRes.json();
+        tasks    = await tRes.json();
+    } catch { meetings = []; tasks = []; }
+
+    monthMeetings[ds] = meetings;
+    monthTasks[ds]    = tasks;
+
+    schedule.innerHTML = "";
+
+    // Time gutter
+    const gutter = document.createElement("div");
+    gutter.className = "time-gutter";
+    for (let s = 0; s < 48; s++) {
+        const lbl = document.createElement("div");
+        lbl.className = "time-label";
+        lbl.textContent = s % 2 === 0 ? slotToTime(s) : "";
+        gutter.appendChild(lbl);
+    }
+    schedule.appendChild(gutter);
+
+    // Slots column
+    const slotsCol = document.createElement("div");
+    slotsCol.className = "slots-column";
+    slotsCol.id = "slotsColumn";
+
+    for (let s = 0; s < 48; s++) {
+        const row = document.createElement("div");
+        row.className = "slot-row";
+        row.dataset.slot = s;
+        row.addEventListener("mousedown", e => startDrag(s, e, "meeting"));
+        row.addEventListener("mouseover", () => continueDrag(s));
+        row.addEventListener("mouseup",   () => endDrag());
+        row.addEventListener("click",     () => singleClick(s));
+        slotsCol.appendChild(row);
+    }
+
+    // Render meeting blocks
+    const meetingColors = ["var(--brass-tint)|var(--brass-dark)","var(--success-tint)|color-mix(in srgb, var(--success) 78%, black)","var(--warning-tint)|color-mix(in srgb, var(--warning) 65%, black)","var(--teal-tint)|var(--teal)","var(--warning-tint)|color-mix(in srgb, var(--warning) 70%, black)"];
+    meetings.forEach((m, i) => {
+        const [bg, fg] = meetingColors[i % meetingColors.length].split("|");
+        const block    = document.createElement("div");
+        block.className = "meeting-block";
+        block.style.cssText = `top:${m.start_slot*48}px;height:${(m.end_slot-m.start_slot)*48-4}px;background:${bg};color:${fg};border-left-color:${fg};`;
+        block.innerHTML = `
+            <div class="mb-title">${m.title}</div>
+            <div class="mb-time">${slotToTime(m.start_slot)} – ${slotToTime(m.end_slot)}</div>
+            ${m.location ? `<div class="mb-loc">📍 ${m.location}</div>` : ""}`;
+        block.onclick = (e) => { e.stopPropagation(); showMeetingDetail(m); };
+        slotsCol.appendChild(block);
+    });
+
+    // Render personal task blocks
+    tasks.forEach(t => {
+        const color = t.color || "var(--purple)";
+        const block = document.createElement("div");
+        block.className = "task-block";
+        // Make a lighter background from the hex color
+        block.style.cssText = `
+            top:${t.start_slot*48}px;
+            height:${(t.end_slot-t.start_slot)*48-4}px;
+            background:${color}18;
+            color:${color};
+            border-left-color:${color};
+        `;
+        block.innerHTML = `
+            <div class="tb-title">✓ ${t.title}</div>
+            <div class="tb-time">${slotToTime(t.start_slot)} – ${slotToTime(t.end_slot)}</div>
+            <button class="tb-delete" onclick="deleteCalendarTask(${t.id}, event)" title="Delete task">✕</button>`;
+        slotsCol.appendChild(block);
+    });
+
+    // Current time line
+    const now = new Date();
+    if (dateStr(now) === ds) {
+        const totalMinutes = now.getHours() * 60 + now.getMinutes();
+        const topPx        = (totalMinutes / 30) * 48;
+        const line         = document.createElement("div");
+        line.className     = "current-time-line";
+        line.id            = "timeLine";
+        line.style.top     = `${topPx}px`;
+        slotsCol.appendChild(line);
+        setTimeout(() => line.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+    }
+
+    schedule.appendChild(slotsCol);
+    schedule.addEventListener("mouseleave", () => { if (isDragging) endDrag(); });
+}
+
+function drawCurrentTimeLine() {
+    const line = document.getElementById("timeLine");
+    if (!line || !selectedDate) return;
+    const now = new Date();
+    if (dateStr(now) !== dateStr(selectedDate)) return;
+    line.style.top = `${((now.getHours()*60 + now.getMinutes()) / 30) * 48}px`;
+}
+
+function navigateDay(dir) {
+    if (!selectedDate) return;
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + dir);
+    openDayView(d);
+}
+
+/* ─── DRAG-SELECT ────────────────────────────────────── */
+document.addEventListener("mouseup", () => { if (isDragging) endDrag(); });
+
+function startDrag(slot, e, type) {
+    if (e.button !== 0) return;
+    isDragging = true;
+    dragStart  = slot;
+    dragEnd    = slot;
+    pendingModalType = type;
+    highlightDraggedSlots();
+}
+function continueDrag(slot) {
+    if (!isDragging) return;
+    dragEnd = slot;
+    highlightDraggedSlots();
+}
+function endDrag() {
+    if (!isDragging) return;
+    isDragging = false;
+    if (dragStart !== null && dragEnd !== null) {
+        const s = Math.min(dragStart, dragEnd);
+        const e = Math.max(dragStart, dragEnd) + 1;
+        if (e - s > 1) openModalForSlots(s, e, pendingModalType);
+    }
+    clearDragHighlights();
+    dragStart = dragEnd = null;
+}
+function singleClick(slot) {
+    if (isDragging) return;
+    // Default: open meeting modal on single click (same as original behaviour)
+    openMeetingModal(slot, slot + 2);
+}
+function highlightDraggedSlots() {
+    const rows = document.querySelectorAll(".slot-row");
+    const s = Math.min(dragStart, dragEnd);
+    const e = Math.max(dragStart, dragEnd);
+    rows.forEach(r => {
+        const sl = parseInt(r.dataset.slot);
+        r.classList.toggle("selecting", sl >= s && sl <= e);
+    });
+}
+function clearDragHighlights() {
+    document.querySelectorAll(".slot-row.selecting").forEach(r => r.classList.remove("selecting"));
+}
+
+function openModalForSlots(start, end, type) {
+    if (type === "task") openTaskModal(start, end);
+    else                  openMeetingModal(start, end);
+}
+
+/* ─── VIEW SWITCHING ─────────────────────────────────── */
+function switchView(view) {
+    currentView = view;
+    if (view === "month") {
+        document.getElementById("monthView").style.display = "block";
+        document.getElementById("dayView").style.display   = "none";
+        document.getElementById("tabMonth").classList.add("active");
+        document.getElementById("tabDay").classList.remove("active");
+        renderMonthView();
+    } else {
+        openDayView(selectedDate || new Date());
+    }
+}
+
+function navigate(dir) {
+    if (currentView === "month") {
+        viewDate.setMonth(viewDate.getMonth() + dir);
+        renderMonthView();
+    } else {
+        navigateDay(dir);
+    }
+}
+
+function goToday() {
+    if (currentView === "month") { viewDate = new Date(); renderMonthView(); }
+    else openDayView(new Date());
+}
+
+/* ─── MEETING MODAL ──────────────────────────────────── */
+function openNewMeeting() {
+    const d = selectedDate || new Date();
+    const s = new Date().getHours() * 2;
+    openMeetingModal(s, s + 2, d);
+}
+
+function openMeetingModal(startSlot, endSlot, date) {
+    pendingStart = startSlot;
+    pendingEnd   = endSlot;
+    const d = date || selectedDate || new Date();
+    document.getElementById("mtgDate").value      = dateStr(d);
+    document.getElementById("mtgStartSlot").value = startSlot;
+    document.getElementById("mtgEndSlot").value   = Math.min(endSlot, 47);
+    document.getElementById("mtgTitle").value     = "";
+    document.getElementById("mtgDesc").value      = "";
+    document.getElementById("mtgLocation").value  = "";
+    updateMeetingTimeDisplay();
+    document.querySelectorAll('input[name="participant"]').forEach(cb => cb.checked = false);
+    document.getElementById("meetingModal").classList.add("active");
+}
+
+function updateMeetingTimeDisplay() {
+    const s = parseInt(document.getElementById("mtgStartSlot").value);
+    const e = parseInt(document.getElementById("mtgEndSlot").value);
+    const dateVal = document.getElementById("mtgDate").value;
+    const d = new Date(dateVal + "T00:00:00");
+    const dateLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    document.getElementById("timeRangeText").textContent = `${dateLabel} · ${slotToTime(s)} – ${slotToTime(e)}`;
+}
+
+document.getElementById("mtgStartSlot").addEventListener("change", updateMeetingTimeDisplay);
+document.getElementById("mtgEndSlot").addEventListener("change",   updateMeetingTimeDisplay);
+document.getElementById("mtgDate").addEventListener("change",      updateMeetingTimeDisplay);
+
+function closeMeetingModal() { document.getElementById("meetingModal").classList.remove("active"); }
+
+async function saveMeeting() {
+    const title     = document.getElementById("mtgTitle").value.trim();
+    const desc      = document.getElementById("mtgDesc").value.trim();
+    const dateVal   = document.getElementById("mtgDate").value;
+    const startSlot = parseInt(document.getElementById("mtgStartSlot").value);
+    const endSlot   = parseInt(document.getElementById("mtgEndSlot").value);
+    const location  = document.getElementById("mtgLocation").value.trim();
+    const attendees = getSelectedParticipants();
+
+    if (!title)          { showToast("Meeting title is required", "error"); return; }
+    if (!dateVal)        { showToast("Please select a date", "error"); return; }
+    if (endSlot <= startSlot) { showToast("End time must be after start time", "error"); return; }
+
+    const btn = document.getElementById("saveMeetingBtn");
+    btn.disabled = true; btn.textContent = "Saving…";
+
+    try {
+        const params = new URLSearchParams({
+            title, description: desc,
+            meeting_date: dateVal,
+            start_slot: startSlot,
+            end_slot: endSlot,
+            organizer_id: userId,
+            location,
+            attendees: JSON.stringify(attendees)
+        });
+        const res  = await fetch(`${API_BASE}/meetings/create?${params}`, {
+            method: "POST",
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast("Meeting scheduled!", "success");
+            closeMeetingModal();
+            if (currentView === "day" && selectedDate) renderDayView(selectedDate);
+            delete monthMeetings[dateVal];
+        } else {
+            showToast(data.message || "Could not save meeting", "error");
+        }
+    } catch (e) {
+        showToast("Network error — please retry", "error");
+    } finally {
+        btn.disabled = false; btn.textContent = "Save Meeting";
+    }
+}
+
+/* ─── TASK MODAL ─────────────────────────────────────── */
+function openNewTask() {
+    const d = selectedDate || new Date();
+    const s = new Date().getHours() * 2;
+    openTaskModal(s, s + 2, d);
+}
+
+function openTaskModal(startSlot, endSlot, date) {
+    const d = date || selectedDate || new Date();
+    document.getElementById("taskDate").value      = dateStr(d);
+    document.getElementById("taskStartSlot").value = startSlot;
+    document.getElementById("taskEndSlot").value   = Math.min(endSlot, 47);
+    document.getElementById("taskTitle").value     = "";
+    document.getElementById("taskDesc").value      = "";
+    document.getElementById("taskColor").value     = "var(--purple)";
+    buildTaskColorPicker();  // reset selection
+    updateTaskTimeDisplay();
+    document.getElementById("taskModal").classList.add("active");
+}
+
+function updateTaskTimeDisplay() {
+    const s = parseInt(document.getElementById("taskStartSlot").value);
+    const e = parseInt(document.getElementById("taskEndSlot").value);
+    const dateVal = document.getElementById("taskDate").value;
+    const d = new Date(dateVal + "T00:00:00");
+    const dateLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    document.getElementById("taskTimeRangeText").textContent = `${dateLabel} · ${slotToTime(s)} – ${slotToTime(e)}`;
+}
+
+document.getElementById("taskStartSlot").addEventListener("change", updateTaskTimeDisplay);
+document.getElementById("taskEndSlot").addEventListener("change",   updateTaskTimeDisplay);
+document.getElementById("taskDate").addEventListener("change",      updateTaskTimeDisplay);
+
+function closeTaskModal() { document.getElementById("taskModal").classList.remove("active"); }
+
+async function saveTask() {
+    const title     = document.getElementById("taskTitle").value.trim();
+    const desc      = document.getElementById("taskDesc").value.trim();
+    const dateVal   = document.getElementById("taskDate").value;
+    const startSlot = parseInt(document.getElementById("taskStartSlot").value);
+    const endSlot   = parseInt(document.getElementById("taskEndSlot").value);
+    const color     = document.getElementById("taskColor").value;
+
+    if (!title)   { showToast("Task title is required", "error"); return; }
+    if (!dateVal) { showToast("Please select a date", "error"); return; }
+    if (endSlot <= startSlot) { showToast("End time must be after start time", "error"); return; }
+
+    const btn = document.getElementById("saveTaskBtn");
+    btn.disabled = true; btn.textContent = "Saving…";
+
+    try {
+        const params = new URLSearchParams({
+            user_id: userId,
+            title,
+            description: desc,
+            task_date: dateVal,
+            start_slot: startSlot,
+            end_slot: endSlot,
+            color,
+        });
+        const res  = await fetch(`${API_BASE}/calendar-tasks/create?${params}`, {
+            method: "POST",
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast("Task added!", "success");
+            closeTaskModal();
+            if (currentView === "day" && selectedDate) renderDayView(selectedDate);
+            refreshMonthView();
+        } else {
+            showToast("Could not save task", "error");
+        }
+    } catch (e) {
+        showToast("Network error — please retry", "error");
+    } finally {
+        btn.disabled = false; btn.textContent = "Save Task";
+    }
+}
+
+async function deleteCalendarTask(taskId, e) {
+    e.stopPropagation();
+    if (!confirm("Delete this task?")) return;
+    try {
+        const res = await fetch(`${API_BASE}/calendar-tasks/${taskId}?user_id=${userId}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+            showToast("Task deleted", "");
+            if (currentView === "day" && selectedDate) renderDayView(selectedDate);
+            refreshMonthView();
+        }
+    } catch {
+        showToast("Could not delete task", "error");
+    }
+}
+
+/* ─── MEETING DETAIL ─────────────────────────────────── */
+async function showMeetingDetail(m) {
+    document.getElementById("detailTitle").textContent = m.title;
+
+    let attendeeNames = [];
+    try {
+        const res = await fetch(`${API_BASE}/meetings/${m.id}/attendees`);
+        const data = await res.json();
+        attendeeNames = data.map(a => a.full_name || `User ${a.user_id}`);
+    } catch { attendeeNames = ["Could not load"]; }
+
+    const statusClass = m.status === "confirmed" ? "status-confirmed" : "status-pending";
+    document.getElementById("meetingDetail").innerHTML = `
+        <div class="detail-row">
+            <span class="detail-icon">📅</span>
+            <div>
+                <div class="detail-label">Date &amp; Time</div>
+                <div class="detail-value">${m.date || m.meeting_date} · ${slotToTime(m.start_slot)} – ${slotToTime(m.end_slot)}</div>
+            </div>
+        </div>
+        ${m.description ? `<div class="detail-row"><span class="detail-icon">📝</span><div><div class="detail-label">Description</div><div class="detail-value">${m.description}</div></div></div>` : ""}
+        ${m.location    ? `<div class="detail-row"><span class="detail-icon">📍</span><div><div class="detail-label">Location</div><div class="detail-value">${m.location}</div></div></div>` : ""}
+        ${m.video_link  ? `<div class="detail-row"><span class="detail-icon">🎥</span><div><div class="detail-label">Video Call</div><a href="${m.video_link}" target="_blank" style="display:inline-block;margin-top:4px;background:var(--success);color:#fff;padding:8px 16px;border-radius:99px;font-size:12.5px;font-weight:700;text-decoration:none;">Join Video Call</a></div></div>` : ""}
+        <div class="detail-row">
+            <span class="detail-icon">👥</span>
+            <div>
+                <div class="detail-label">Participants</div>
+                <div class="attendee-chips">
+                    ${attendeeNames.map(n => `<span class="attendee-chip">${n}</span>`).join("") || "<span style='color:var(--text-faint);font-size:13px'>None invited</span>"}
+                </div>
+            </div>
+        </div>
+        <div class="detail-row" style="margin-bottom:0">
+            <span class="detail-icon">🟢</span>
+            <div>
+                <div class="detail-label">Status</div>
+                <span class="status-badge ${statusClass}">${m.status || "pending"}</span>
+            </div>
+        </div>`;
+    document.getElementById("detailModal").classList.add("active");
+}
+
+function closeDetailModal() { document.getElementById("detailModal").classList.remove("active"); }
+
+/* ─── UTILITIES ──────────────────────────────────────── */
+function dateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+function showToast(msg, type = "") {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className   = `toast ${type} show`;
+    setTimeout(() => t.className = "toast", 3400);
+}
+
+function logout() { localStorage.clear(); window.location.href = "index.html"; }
+
+/* ─── CLOSE MODALS ON OVERLAY CLICK ─────────────────── */
+document.getElementById("meetingModal").addEventListener("click", e => { if (e.target === e.currentTarget) closeMeetingModal(); });
+document.getElementById("taskModal").addEventListener("click",    e => { if (e.target === e.currentTarget) closeTaskModal();    });
+document.getElementById("detailModal").addEventListener("click",  e => { if (e.target === e.currentTarget) closeDetailModal();  });
+</script>
+
+<!-- PWA: installable app support -->
+<button id="pwaInstallBtn" onclick="pwaInstallApp()"
+        style="display:none;position:fixed;bottom:24px;right:24px;z-index:9998;
+               background:var(--brass);color:#fff;border:none;padding:12px 20px;
+               border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;
+               box-shadow:0 4px 14px rgba(0,0,0,.2);">
+    ⬇ Install App
+</button>
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("service-worker.js").catch(err =>
+                console.warn("Service worker registration failed:", err)
+            );
+        });
+    }
+
+    let pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        pwaDeferredPrompt = e;
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "block";
+    });
+
+    function pwaInstallApp() {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (!pwaDeferredPrompt) return;
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.finally(() => {
+            pwaDeferredPrompt = null;
+            if (btn) btn.style.display = "none";
+        });
+    }
+
+    window.addEventListener("appinstalled", () => {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "none";
+    });
+</script>
+
+</body>
+</html>

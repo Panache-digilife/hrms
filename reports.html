@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports | Panache</title>
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role) { window.location.href = "index.html"; }
+        if (role !== "manager") { window.location.href = "index.html"; }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        body { display:flex; }
+        .main { margin-left:264px; width:calc(100% - 264px); padding: 28px 34px 50px; }
+        .productivity-bar-wrap .bar-label { display:flex; justify-content:space-between; font-size:13.5px; margin-bottom:6px; color: var(--text); }
+    </style>
+</head>
+
+<body>
+
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleMobileSidebar()" aria-label="Open menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <div class="logo">✦ Panache WMS</div>
+    <div class="menu">
+        <a href="manager-dashboard.html">Dashboard</a>
+        <a href="team-members.html">Team Members</a>
+        <a href="reports.html" class="active">Reports</a>
+        <a href="settings.html">Settings</a>
+        <a href="#" onclick="logout()">Logout</a>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>Reports</h1>
+        <div style="display:flex;align-items:center;gap:15px;">
+            <div class="profile">
+                <b id="profileName">Loading...</b><br>
+                <span id="profileEmail"></span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="cards">
+        <div class="card">
+            <h2 id="statEmployees">—</h2>
+            <p>Team members</p>
+        </div>
+        <div class="card">
+            <h2 id="statTotal">—</h2>
+            <p>Assigned Tasks</p>
+        </div>
+        <div class="card green">
+            <h2 id="statCompleted">—</h2>
+            <p>Completed Tasks</p>
+        </div>
+        <div class="card yellow">
+            <h2 id="statPending">—</h2>
+            <p>Pending Tasks</p>
+        </div>
+        <div class="card">
+            <h2 id="statProductivity">—</h2>
+            <p>Completion Rate</p>
+        </div>
+    </div>
+
+    <!-- TEAM PRODUCTIVITY -->
+    <div class="section">
+        <h2>Team Productivity</h2>
+        <div id="productivityBars">
+            <p style="color:var(--text-faint);font-size:14px;">Loading...</p>
+        </div>
+    </div>
+
+<script>
+    window.toggleMobileSidebar = function() {
+        document.querySelector(".sidebar").classList.toggle("open");
+        document.getElementById("sidebarBackdrop").classList.toggle("active");
+    };
+
+    const BASE = "https://backend-n5lk.onrender.com";
+
+    document.getElementById("profileName").innerHTML  = localStorage.getItem("userName");
+    document.getElementById("profileEmail").innerHTML = localStorage.getItem("userEmail");
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "index.html";
+    }
+
+    function barColor(score) {
+        if (score >= 75) return "green";
+        if (score >= 40) return "";
+        return "red";
+    }
+
+    function ratingBadge(score) {
+        if (score >= 75) return `<span class="badge badge-green">High</span>`;
+        if (score >= 40) return `<span class="badge badge-yellow">Medium</span>`;
+        return `<span class="badge badge-red">Low</span>`;
+    }
+
+    // ── MANAGER STATS ────────────────────────────────────────
+    async function loadStats(){
+
+    const managerId =
+    localStorage.getItem("userId");
+
+    const response =
+    await fetch(
+    `${BASE}/manager-report?manager_id=${managerId}`
+    );
+
+    const data =
+    await response.json();
+
+    document.getElementById("statEmployees").innerHTML =
+    data.team_members;
+
+    document.getElementById("statTotal").innerHTML =
+    data.assigned_tasks;
+
+    document.getElementById("statCompleted").innerHTML =
+    data.completed_tasks;
+
+    document.getElementById("statPending").innerHTML =
+    data.pending_tasks;
+
+    document.getElementById("statProductivity").innerHTML =
+    data.completion_rate + "%";
+
+}
+
+    // ── REVIEW TASKS COUNT ───────────────────────────────────
+    async function loadReviewCount() {
+        try {
+            const res   = await fetch(`${BASE}/review-tasks`);
+            const tasks = await res.json();
+            document.getElementById("bReview").innerHTML = tasks.length;
+        } catch (e) {
+            document.getElementById("bReview").innerHTML = "—";
+        }
+    }
+
+    // ── EMPLOYEE PERFORMANCE ─────────────────────────────────
+    async function loadPerformance() {
+        try {
+            const res  = await fetch(`${BASE}/employee-performance`);
+            const data = await res.json();
+
+            // Productivity bars
+            let barsHtml = "";
+            data.forEach(emp => {
+                const color = barColor(emp.score);
+                barsHtml += `
+                    <div class="productivity-bar-wrap">
+                        <div class="bar-label">
+                            <span>${emp.name}</span>
+                            <span>${emp.score}%</span>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill ${color}" style="width:${emp.score}%"></div>
+                        </div>
+                    </div>`;
+            });
+            document.getElementById("productivityBars").innerHTML =
+                barsHtml || '<p style="color:var(--text-faint);font-size:14px;">No data available.</p>';
+
+            // Employee summary table
+            let tableHtml = "";
+            data.forEach(emp => {
+                tableHtml += `
+                    <tr>
+                        <td><b>${emp.name}</b></td>
+                        <td>${emp.assigned}</td>
+                        <td>${emp.completed}</td>
+                        <td>${emp.score}%</td>
+                        <td>${ratingBadge(emp.score)}</td>
+                    </tr>`;
+            });
+            document.getElementById("employeeSummaryTable").innerHTML =
+                tableHtml || `<tr><td colspan="5" style="color:var(--text-faint);text-align:center;padding:20px;">No employees found.</td></tr>`;
+
+        } catch (e) {
+            console.error("loadPerformance error:", e);
+        }
+    }
+
+    // Init
+    loadStats();
+    loadReviewCount();
+    loadPerformance();
+</script>
+
+
+<!-- PWA: installable app support -->
+<button id="pwaInstallBtn" onclick="pwaInstallApp()">⬇ Install App</button>
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("service-worker.js").catch(err =>
+                console.warn("Service worker registration failed:", err)
+            );
+        });
+    }
+
+    let pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        pwaDeferredPrompt = e;
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "block";
+    });
+
+    function pwaInstallApp() {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (!pwaDeferredPrompt) return;
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.finally(() => {
+            pwaDeferredPrompt = null;
+            if (btn) btn.style.display = "none";
+        });
+    }
+
+    window.addEventListener("appinstalled", () => {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "none";
+    });
+</script>
+
+</body>
+</html>

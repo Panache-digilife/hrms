@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Overview | Panache WMS</title>
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role) { window.location.href = "index.html"; }
+        if (role !== "ceo" && role !== "admin") { window.location.href = "index.html"; }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        body { display:flex; }
+        .main { margin-left: 264px; width: calc(100% - 264px); padding: 28px 34px 50px; }
+
+        .logo-sub { margin-top: -18px; }
+
+        /* Executive tier marker: brass active state instead of the standard nav highlight */
+        .menu a.active { background: rgba(199,154,69,.22); }
+
+        .card h2 { color: var(--brass-dark); }
+        .card.green h2  { color: var(--success); }
+        .card.red h2    { color: var(--danger); }
+        .card.blue h2   { color: var(--info); }
+
+        .btn-approve { margin-right:6px; }
+    </style>
+</head>
+<body>
+
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleMobileSidebar()" aria-label="Open menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
+
+<div class="sidebar">
+    <div class="logo">✦ Panache</div>
+    <div class="logo-sub">Executive View</div>
+    <div class="menu">
+        <a href="ceo-dashboard.html" class="active">Overview</a>
+        <a href="calendar.html">Calendar</a>
+        <a href="sales-dashboard.html">Sales Dashboard</a>
+        <a href="settings.html">Settings</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div>
+            <h1 id="greeting">Executive Overview</h1>
+            <p class="sub" id="todayLabel"></p>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px;">
+            <div class="profile" id="profileName">—</div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- TOP-LINE CARDS -->
+    <div class="cards" id="topCards">
+        <div class="card"><h2 id="cHeadcount">—</h2><p>Total headcount</p></div>
+        <div class="card green"><h2 id="cAttendance">—</h2><p>Attendance this month</p></div>
+        <div class="card blue"><h2 id="cPayroll">—</h2><p>Payroll cost (latest month)</p></div>
+        <div class="card"><h2 id="cTaskCompletion">—</h2><p>Company task completion</p></div>
+    </div>
+
+    <div class="cards">
+        <div class="card"><h2 id="cPresentToday">—</h2><p>Present today</p></div>
+        <div class="card"><h2 id="cSalesAchieved">—</h2><p>Sales achieved this week</p></div>
+        <div class="card"><h2 id="cLeavePending">—</h2><p>Leave requests pending</p></div>
+        <div class="card red"><h2 id="cTravelPending">—</h2><p>Travel requests pending</p></div>
+    </div>
+
+    <!-- HEADCOUNT BREAKDOWN -->
+    <div class="section">
+        <div class="section-header"><h2>Headcount by role</h2></div>
+        <div id="headcountBreakdown"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- HIGH-VALUE TRAVEL APPROVALS -->
+    <div class="section">
+        <div class="section-header">
+            <h2>High-value travel requests awaiting approval</h2>
+            <span class="note" id="travelThresholdNote"></span>
+        </div>
+        <div id="travelApprovalsWrap"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- PAYROLL STATUS -->
+    <div class="section">
+        <div class="section-header"><h2>Payroll status</h2></div>
+        <div id="payrollStatusWrap"><div class="empty-state">Loading…</div></div>
+    </div>
+</div>
+
+<script>
+    window.toggleMobileSidebar = function() {
+        document.querySelector(".sidebar").classList.toggle("open");
+        document.getElementById("sidebarBackdrop").classList.toggle("active");
+    };
+
+    const BASE = "https://backend-n5lk.onrender.com";
+
+    function authHeaders(extra = {}) {
+        return { "Authorization": "Bearer " + (localStorage.getItem("authToken") || ""), ...extra };
+    }
+
+    async function api(path, opts = {}) {
+        try {
+            const r = await fetch(BASE + path, { headers: authHeaders({ "Content-Type": "application/json" }), ...opts });
+            if (r.status === 401) {
+                localStorage.clear();
+                window.location.href = "index.html";
+                return null;
+            }
+            return await r.json();
+        } catch (e) {
+            console.error(`API ${path} failed:`, e);
+            return null;
+        }
+    }
+
+    function logout() { localStorage.clear(); window.location.href = "index.html"; }
+
+    function money(n) {
+        n = Number(n) || 0;
+        return "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+    }
+
+    document.getElementById("profileName").textContent = localStorage.getItem("userName") || "—";
+    document.getElementById("todayLabel").textContent = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+    async function loadOverview() {
+        const d = await api("/ceo/overview");
+        if (!d) return;
+
+        document.getElementById("cHeadcount").textContent = d.headcount.total;
+        document.getElementById("cAttendance").textContent = d.attendance_month_pct + "%";
+        document.getElementById("cPayroll").textContent = money(d.payroll.total_cost);
+        document.getElementById("cTaskCompletion").textContent = d.tasks.completion_pct + "%";
+        document.getElementById("cPresentToday").textContent = `${d.attendance_today.present} / ${d.attendance_today.total}`;
+        document.getElementById("cSalesAchieved").textContent = money(d.sales.achieved_this_week);
+        document.getElementById("cLeavePending").textContent = d.leave.pending;
+        document.getElementById("cTravelPending").textContent = d.travel.pending_count;
+
+        renderHeadcount(d.headcount);
+        renderTravelApprovals(d.travel);
+        renderPayrollStatus(d.payroll);
+    }
+
+    function renderHeadcount(headcount) {
+        const wrap = document.getElementById("headcountBreakdown");
+        const entries = Object.entries(headcount.by_role || {});
+        if (!entries.length) { wrap.innerHTML = `<div class="empty-state">No users found.</div>`; return; }
+        const max = Math.max(...entries.map(e => e[1]));
+        wrap.innerHTML = entries.map(([role, count]) => `
+            <div class="breakdown-row">
+                <div class="breakdown-label">${role}</div>
+                <div class="breakdown-track"><div class="breakdown-fill" style="width:${(count/max*100).toFixed(0)}%"></div></div>
+                <div class="breakdown-count">${count}</div>
+            </div>
+        `).join("");
+    }
+
+    function renderTravelApprovals(travel) {
+        document.getElementById("travelThresholdNote").textContent = `Threshold: ${money(travel.threshold)}+`;
+        const wrap = document.getElementById("travelApprovalsWrap");
+        if (!travel.high_value_pending || !travel.high_value_pending.length) {
+            wrap.innerHTML = `<div class="empty-state">No high-value travel requests pending your approval.</div>`;
+            return;
+        }
+        wrap.innerHTML = `
+            <table>
+                <thead><tr><th>Employee</th><th>Destination</th><th>Start date</th><th>Estimated cost</th><th>Action</th></tr></thead>
+                <tbody>
+                    ${travel.high_value_pending.map(t => `
+                        <tr id="travel-row-${t.id}">
+                            <td>${t.employee_name}</td>
+                            <td>${t.destination}</td>
+                            <td>${t.start_date}</td>
+                            <td>${money(t.estimated_cost)}</td>
+                            <td>
+                                <button class="btn-approve" onclick="actOnTravel(${t.id}, 'approve')">Approve</button>
+                                <button class="btn-reject" onclick="actOnTravel(${t.id}, 'reject')">Reject</button>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        `;
+    }
+
+    async function actOnTravel(id, action) {
+        const res = await api(`/travel-requests/${id}/${action}`, { method: "POST" });
+        if (res && res.success !== false) {
+            const row = document.getElementById(`travel-row-${id}`);
+            if (row) row.remove();
+        } else {
+            alert(res?.message || "Action failed. Please try again.");
+        }
+    }
+
+    function renderPayrollStatus(payroll) {
+        const wrap = document.getElementById("payrollStatusWrap");
+        if (!payroll.month) { wrap.innerHTML = `<div class="empty-state">No payroll generated yet.</div>`; return; }
+        wrap.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <p style="font-size:14px; color:var(--text); margin-bottom:6px;">
+                        <b>${payroll.month}</b> · ${payroll.employee_count} employees · ${money(payroll.total_cost)} total net payout
+                    </p>
+                    <span class="badge ${payroll.locked ? 'badge-green' : 'badge-gold'}">${payroll.locked ? 'Locked' : 'Open / Unlocked'}</span>
+                </div>
+                ${payroll.locked ? `<button class="btn-unlock" onclick="unlockPayroll('${payroll.month}')">Unlock for correction</button>` : ""}
+            </div>
+        `;
+    }
+
+    async function unlockPayroll(month) {
+        if (!confirm(`Unlock payroll for ${month}? This allows corrections to be made.`)) return;
+        const res = await api(`/payroll/unlock?month=${encodeURIComponent(month)}`, {
+            method: "POST",
+            body: JSON.stringify({ unlocked_by: localStorage.getItem("userName") || "CEO" })
+        });
+        if (res && res.success !== false) {
+            alert("Payroll unlocked.");
+            loadOverview();
+        } else {
+            alert(res?.message || "Failed to unlock payroll.");
+        }
+    }
+
+    loadOverview();
+</script>
+
+</body>
+</html>

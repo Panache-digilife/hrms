@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Members | Panache</title>
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role || role !== "manager") { window.location.href = "index.html"; }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        body { display:flex; }
+        .main { margin-left:264px; width:calc(100% - 264px); padding: 28px 34px 50px; }
+        .profile span { display: inline; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleMobileSidebar()" aria-label="Open menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
+
+<div class="sidebar">
+    <div class="logo">✦ Panache WMS</div>
+    <div class="menu">
+        <a href="manager-dashboard.html">Dashboard</a>
+        <a href="sales-dashboard.html">Sales Dashboard</a>
+        <a href="team-members.html" class="active">Team Members</a>
+        <a href="settings.html">Settings</a>
+        <a href="#" onclick="logout()">Logout</a>
+    </div>
+</div>
+
+<div class="main">
+
+    <div class="header">
+        <h1>Team Members</h1>
+        <div style="display:flex;align-items:center;gap:15px;">
+            <div class="profile">
+                <b id="profileName">Loading...</b><br>
+                <span>Manager</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- CURRENT TEAM -->
+    <div class="section">
+        <div class="section-header">
+            <h2>My Team</h2>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Name</th><th>Email</th><th>Active Tasks</th><th>Remove</th>
+                </tr>
+            </thead>
+            <tbody id="teamTable">
+                <tr><td colspan="5" class="no-data">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- SENT REQUESTS -->
+    <div class="section">
+        <div class="section-header">
+            <h2>Sent Requests</h2>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Name</th><th>Email</th><th>Status</th><th>Sent</th>
+                </tr>
+            </thead>
+            <tbody id="requestsTable">
+                <tr><td colspan="5" class="no-data">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ADD MEMBER -->
+    <div class="section">
+        <div class="section-header">
+            <h2>Send Team Request</h2>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+            Search for an employee by name and send them a team join request. They will need to approve it.
+        </p>
+        <div class="search-wrap">
+            <input type="text" id="searchInput" placeholder="Search employee by name..." oninput="searchEmployees()" />
+        </div>
+        <table>
+            <thead>
+                <tr><th>ID</th><th>Name</th><th>Email</th><th>Action</th></tr>
+            </thead>
+            <tbody id="searchTable">
+                <tr><td colspan="4" class="no-data">Type a name to search.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    window.toggleMobileSidebar = function() {
+        document.querySelector(".sidebar").classList.toggle("open");
+        document.getElementById("sidebarBackdrop").classList.toggle("active");
+    };
+
+    const BASE      = "https://backend-n5lk.onrender.com";
+    const managerId = localStorage.getItem("userId");
+
+    document.getElementById("profileName").textContent = localStorage.getItem("userName") || "Manager";
+
+    function logout() { localStorage.clear(); window.location.href = "index.html"; }
+
+    function authHeaders(extra = {}) {
+        return { "Authorization": "Bearer " + (localStorage.getItem("authToken") || ""), ...extra };
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    function formatDate(raw) {
+        if (!raw) return "—";
+        return new Date(raw).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+    }
+
+    // ── LOAD CURRENT TEAM ─────────────────────────────────────
+    async function loadTeam() {
+        const res  = await fetch(`${BASE}/team?manager_id=${managerId}`);
+        const data = await res.json();
+
+        if (!data.length) {
+            document.getElementById("teamTable").innerHTML =
+                `<tr><td colspan="5" class="no-data">No team members yet.</td></tr>`;
+            return;
+        }
+
+        document.getElementById("teamTable").innerHTML = data.map(emp => `
+            <tr>
+                <td>${emp.id}</td>
+                <td><b>${emp.full_name}</b></td>
+                <td>${emp.email}</td>
+                <td>${emp.task_count}</td>
+                <td>
+                    <button class="btn-danger" onclick="removeMember(${emp.id})">Remove</button>
+                </td>
+            </tr>`).join("");
+    }
+
+    // ── REMOVE MEMBER ─────────────────────────────────────────
+    async function removeMember(employeeId) {
+        if (!confirm("Remove this employee from your team?")) return;
+        const res  = await fetch(`${BASE}/team/remove?manager_id=${managerId}&employee_id=${employeeId}`, { method:"POST", headers: authHeaders() });
+        const data = await res.json();
+        if (data.success) { showToast("Member removed."); loadTeam(); }
+    }
+
+    // ── LOAD SENT REQUESTS ────────────────────────────────────
+    async function loadSentRequests() {
+        const res  = await fetch(`${BASE}/team-requests/sent?manager_id=${managerId}`);
+        const data = await res.json();
+
+        if (!data.length) {
+            document.getElementById("requestsTable").innerHTML =
+                `<tr><td colspan="5" class="no-data">No requests sent yet.</td></tr>`;
+            return;
+        }
+
+        document.getElementById("requestsTable").innerHTML = data.map(r => `
+            <tr>
+                <td>${r.employee_id}</td>
+                <td><b>${r.employee_name}</b></td>
+                <td>${r.employee_email}</td>
+                <td><span class="badge badge-${r.status}">${r.status}</span></td>
+                <td>${formatDate(r.created_at)}</td>
+            </tr>`).join("");
+    }
+
+    // ── SEARCH EMPLOYEES ──────────────────────────────────────
+    let searchTimer = null;
+    async function searchEmployees() {
+        const q = document.getElementById("searchInput").value.trim();
+        clearTimeout(searchTimer);
+
+        if (q.length < 2) {
+            document.getElementById("searchTable").innerHTML =
+                `<tr><td colspan="4" class="no-data">Type at least 2 characters.</td></tr>`;
+            return;
+        }
+
+        searchTimer = setTimeout(async () => {
+            const res  = await fetch(`${BASE}/search-employee?name=${encodeURIComponent(q)}`);
+            const data = await res.json();
+
+            if (!data.length) {
+                document.getElementById("searchTable").innerHTML =
+                    `<tr><td colspan="4" class="no-data">No employees found.</td></tr>`;
+                return;
+            }
+
+            document.getElementById("searchTable").innerHTML = data.map(emp => `
+                <tr>
+                    <td>${emp.id}</td>
+                    <td><b>${emp.full_name}</b></td>
+                    <td>${emp.email}</td>
+                    <td>
+                        <button class="btn-primary btn-sm"
+                                onclick="sendRequest(${emp.id}, this)">
+                            Send Request
+                        </button>
+                    </td>
+                </tr>`).join("");
+        }, 300);
+    }
+
+    // ── SEND REQUEST ──────────────────────────────────────────
+    async function sendRequest(employeeId, btn) {
+        btn.disabled    = true;
+        btn.textContent = "Sending…";
+
+        const res  = await fetch(
+            `${BASE}/team/add?manager_id=${managerId}&employee_id=${employeeId}`,
+            { method: "POST", headers: authHeaders() }
+        );
+        const data = await res.json();
+
+        if (data.success) {
+            btn.textContent      = "✓ Request Sent";
+            btn.className        = "btn-pending";
+            showToast("Request sent! Waiting for employee approval.");
+            loadSentRequests();
+        } else {
+            btn.disabled    = false;
+            btn.textContent = "Send Request";
+            showToast(data.message || "Failed to send request.");
+        }
+    }
+
+    // ── INIT ──────────────────────────────────────────────────
+    loadTeam();
+    loadSentRequests();
+</script>
+
+<!-- PWA: installable app support -->
+<button id="pwaInstallBtn" onclick="pwaInstallApp()">⬇ Install App</button>
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("service-worker.js").catch(err =>
+                console.warn("Service worker registration failed:", err)
+            );
+        });
+    }
+
+    let pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        pwaDeferredPrompt = e;
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "block";
+    });
+
+    function pwaInstallApp() {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (!pwaDeferredPrompt) return;
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.finally(() => {
+            pwaDeferredPrompt = null;
+            if (btn) btn.style.display = "none";
+        });
+    }
+
+    window.addEventListener("appinstalled", () => {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "none";
+    });
+</script>
+
+</body>
+</html>

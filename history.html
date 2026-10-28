@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task History | Panache</title>
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role) { window.location.href = "index.html"; }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        body { display:flex; }
+        .main { margin-left:264px; width:calc(100% - 264px); padding: 28px 34px 50px; }
+        .card h2 { font-family: var(--font-display); }
+    </style>
+</head>
+
+<body>
+
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleMobileSidebar()" aria-label="Open menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <div class="logo">✦ Panache WMS</div>
+    <div class="menu">
+        <a href="employee-dashboard.html" id="sidebarDashboardLink">Dashboard</a>
+        <a href="settings.html">Settings</a>
+        <a href="history.html" class="active">History</a>
+    </div>
+<!-- ── PERSONAL TO-DO ─────────────────────────────── -->
+<div class="sidebar-notes">
+    <p>My notes</p>
+    <div id="sidebarTodos"></div>
+    <div class="todo-input-row">
+        <input id="sidebarTodoInput" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addSidebarTodo()" />
+        <button class="todo-add-btn" onclick="addSidebarTodo()">+</button>
+    </div>
+</div>
+</div>
+<script>
+(function() {
+    const KEY = "panache_todos";
+
+    function load() {
+        try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+        catch { return []; }
+    }
+
+    function save(todos) {
+        localStorage.setItem(KEY, JSON.stringify(todos));
+    }
+
+    function render() {
+        const todos = load();
+        const box   = document.getElementById("sidebarTodos");
+        box.innerHTML = "";
+
+        todos.forEach((text, i) => {
+            const row = document.createElement("div");
+            row.className = "todo-row";
+            row.innerHTML = `
+                <div class="todo-check" onclick="completeSidebarTodo(${i})" title="Mark complete — will be removed"></div>
+                <span>${text}</span>`;
+            box.appendChild(row);
+        });
+    }
+
+    window.addSidebarTodo = function() {
+        const inp  = document.getElementById("sidebarTodoInput");
+        const text = inp.value.trim();
+        if (!text) return;
+        const todos = load();
+        todos.push(text);
+        save(todos);
+        inp.value = "";
+        render();
+    };
+
+    window.completeSidebarTodo = function(i) {
+        const circle = document.getElementById("sidebarTodos")
+                               .children[i]
+                               .querySelector(".todo-check");
+        circle.style.background    = "#2E9563";
+        circle.style.borderColor   = "#2E9563";
+        circle.innerHTML           = `<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        setTimeout(() => {
+            const todos = load();
+            todos.splice(i, 1);
+            save(todos);
+            render();
+        }, 500);
+    };
+
+    render();
+})();
+
+window.toggleMobileSidebar = function() {
+    document.querySelector(".sidebar").classList.toggle("open");
+    document.getElementById("sidebarBackdrop").classList.toggle("active");
+};
+</script>
+<!-- MAIN -->
+<div class="main">
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>Task History</h1>
+        <div style="display:flex;align-items:center;gap:15px;">
+            <div class="profile">
+                <b id="profileName">Loading...</b><br>
+                <span id="profileEmail"></span><br>
+                <span id="profileId"></span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="cards">
+        <div class="card">
+            <h2 id="cardTotal">—</h2>
+            <p>Tasks Completed</p>
+        </div>
+        <div class="card">
+            <h2 id="cardLatest">—</h2>
+            <p>Most Recent</p>
+        </div>
+    </div>
+
+    <!-- HISTORY TABLE -->
+    <div class="section">
+        <h2>Completed Tasks Log</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>History ID</th>
+                    <th>Task ID</th>
+                    <th>Task Title</th>
+                    <th>Completed At</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="historyTable">
+                <tr><td colspan="5" class="no-data">Loading history...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+    const BASE   = "https://backend-n5lk.onrender.com";
+    const userId = localStorage.getItem("userId");
+
+    // ── PROFILE ──────────────────────────────────────────────
+    document.getElementById("profileName").innerHTML  = localStorage.getItem("userName");
+    document.getElementById("profileEmail").innerHTML = localStorage.getItem("userEmail");
+    document.getElementById("profileId").innerHTML    = "Employee ID: " + userId;
+
+    // Route the Dashboard link based on role since this page's sidebar is shared
+    (function() {
+        const role = localStorage.getItem("userRole");
+        const dashboardMap = {
+            admin: "admin-dashboard.html",
+            manager: "manager-dashboard.html",
+            employee: "employee-dashboard.html",
+            intern: "intern-dashboard.html"
+        };
+        const link = document.getElementById("sidebarDashboardLink");
+        if (link && dashboardMap[role]) link.href = dashboardMap[role];
+        if (role === "intern") document.getElementById("profileId").innerHTML = "Intern ID: " + userId;
+    })();
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "index.html";
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+function formatDate(raw) {
+    if (!raw) return "—";
+    const d = new Date(raw);
+    if (isNaN(d)) return raw;
+    return d.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+    });
+}
+
+    // ── LOAD HISTORY ─────────────────────────────────────────
+    async function loadHistory() {
+        try {
+            const res     = await fetch(`${BASE}/history?user_id=${userId}`);
+            const history = await res.json();
+
+            if (!history.length) {
+                document.getElementById("historyTable").innerHTML =
+                    `<tr><td colspan="5" class="no-data">No completed tasks yet.</td></tr>`;
+                document.getElementById("cardTotal").innerHTML  = "0";
+                document.getElementById("cardLatest").innerHTML = "—";
+                return;
+            }
+
+            // Summary cards
+            document.getElementById("cardTotal").innerHTML = history.length;
+            document.getElementById("cardLatest").innerHTML =
+                history[0].task_title
+                    ? history[0].task_title.length > 16
+                        ? history[0].task_title.slice(0, 14) + "…"
+                        : history[0].task_title
+                    : "—";
+
+            // Table rows
+            let html = "";
+            history.forEach(item => {
+                html += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.task_id}</td>
+                        <td><b>${item.task_title || "—"}</b></td>
+                        <td>${formatDate(item.submitted_at || item.completed_at)}</td>
+                        <td><span class="badge-completed">Completed</span></td>
+                    </tr>`;
+            });
+
+            document.getElementById("historyTable").innerHTML = html;
+
+        } catch (e) {
+            console.error("loadHistory error:", e);
+            document.getElementById("historyTable").innerHTML =
+                `<tr><td colspan="5" class="no-data" style="color:#D14343;">
+                    Failed to load history. Please refresh.
+                </td></tr>`;
+            showToast("Could not load task history.");
+        }
+    }
+
+    loadHistory();
+</script>
+
+
+<!-- PWA: installable app support -->
+<button id="pwaInstallBtn" onclick="pwaInstallApp()">⬇ Install App</button>
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("service-worker.js").catch(err =>
+                console.warn("Service worker registration failed:", err)
+            );
+        });
+    }
+
+    let pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        pwaDeferredPrompt = e;
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "flex";
+    });
+
+    function pwaInstallApp() {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (!pwaDeferredPrompt) return;
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.finally(() => {
+            pwaDeferredPrompt = null;
+            if (btn) btn.style.display = "none";
+        });
+    }
+
+    window.addEventListener("appinstalled", () => {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "none";
+    });
+</script>
+
+</body>
+</html>

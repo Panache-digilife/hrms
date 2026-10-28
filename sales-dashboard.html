@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard | Panache</title>
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14161B">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+        const role = localStorage.getItem("userRole");
+        if (!role) { window.location.href = "index.html"; }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,400..600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="panache-theme.css">
+
+    <style>
+        /* ============================================================
+           SALES DASHBOARD — page-specific additions only.
+           Shared design system lives in panache-theme.css
+        ============================================================ */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { display: flex; }
+
+        /* Logo (mark + wordmark + sub label), matches Employee Dashboard exactly */
+        .logo { display: flex; align-items: baseline; gap: 8px; padding: 4px 10px 22px; margin-bottom: 6px; border-bottom: 1px solid var(--ink-line); font-family: inherit; font-style: normal; }
+        .logo .mark { color: var(--brass); font-size: 20px; line-height: 1; transform: translateY(-1px); }
+        .logo .word { font-family: var(--font-display); font-style: italic; font-weight: 560; font-size: 21px; letter-spacing: .2px; }
+        .logo .sub { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 1.6px; font-weight: 600; }
+
+        .header-title .eyebrow { font-size: 11.5px; font-weight: 700; color: var(--brass-dark); text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 3px; }
+        .header-actions { display:flex; align-items:center; gap:14px; flex-wrap: wrap; }
+        .page-header h1 { font-family: var(--font-display); font-weight: 560; font-size: 27px; color: var(--text); letter-spacing: .1px; }
+
+        /* ── WEEK CALENDAR ───────────────────────────────── */
+        .week-bar { background: var(--surface); border: 1px solid var(--border-soft); padding: 18px 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); margin-bottom: 22px; }
+        .week-bar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .week-bar-header label { font-size: 14px; color: var(--text); font-weight: 700; }
+        .week-nav-btns { display: flex; gap: 6px; }
+        .week-nav-btn {
+            width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+            background: var(--surface); color: var(--text-muted); font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: .2s;
+        }
+        .week-nav-btn:hover { border-color: var(--brass-dark); color: var(--brass-dark); }
+        .week-nav-btn:disabled { opacity: .35; cursor: default; }
+
+        .week-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        @media (max-width: 900px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .week-card {
+            border: 2px solid var(--border-soft); border-radius: var(--radius-sm); padding: 10px 12px;
+            cursor: pointer; transition: .2s; position: relative; background: var(--surface);
+        }
+        .week-card:hover        { border-color: var(--brass-dark); background: var(--brass-tint); }
+        .week-card.active       { border-color: var(--brass-dark); background: var(--brass-tint); }
+        .week-card.past         { opacity: .6; background: var(--surface-muted); }
+        .week-card.past:hover   { border-color: var(--text-faint); background: var(--border-soft); }
+
+        .week-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .week-card-num { font-size: 13px; font-weight: 700; color: var(--text); }
+        .wk-badge.current  { background: var(--success-tint); color: var(--success); }
+        .wk-badge.upcoming { background: var(--teal-tint);    color: var(--teal); }
+        .wk-badge.past     { background: var(--border-soft);  color: var(--text-muted); }
+
+        .week-card-dates { font-size: 11px; color: var(--text-muted); }
+        .week-card-days { display: flex; gap: 3px; margin-top: 8px; flex-wrap: wrap; }
+        .day-chip { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--border-soft); color: var(--text-muted); font-weight: 500; }
+        .day-chip.today { background: var(--brass); color: var(--ink); }
+
+        /* ── TWO-COLUMN LAYOUT (renamed to avoid clashing with the shared .dashboard-grid KPI grid) ── */
+        .sales-layout-grid { display: grid; grid-template-columns: 1fr 320px; gap: 22px; align-items: start; }
+        @media (max-width: 1100px) {
+            .sales-layout-grid { grid-template-columns: 1fr; }
+            .right-panel { position: static; }
+        }
+
+        /* ── FORM ────────────────────────────────────────── */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+        .form-group input {
+            padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 14px; color: var(--text); outline: none; background: var(--surface-muted); transition: .2s;
+        }
+        .form-group input:focus { border-color: var(--brass-dark); background: var(--surface); }
+        .form-group input:disabled { background: var(--border-soft); color: var(--text-faint); }
+        .form-full { grid-column: 1 / -1; }
+
+        .achieved-input {
+            width: 80px; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 13px; text-align: center; outline: none; transition: .2s; background: var(--surface-muted); color: var(--text);
+        }
+        .achieved-input:focus { border-color: var(--brass-dark); background: var(--surface); }
+        .achieved-input:disabled { background: var(--border-soft); color: var(--text-faint); cursor: not-allowed; }
+
+        td.lock-icon { color: var(--text-faint); font-size: 11px; }
+
+        /* ── RIGHT SIDEBAR (sticky) ──────────────────────── */
+        .right-panel { position: sticky; top: 25px; }
+
+        .chart-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); margin-bottom: 16px; text-align: center; }
+        .chart-card h3 { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; font-weight: 600; }
+        .chart-wrap { position: relative; width: 200px; height: 200px; margin: 0 auto; }
+        .chart-center-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 26px; font-weight: 700; color: var(--text); font-family: var(--font-display); }
+
+        .stat-card h3 { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
+
+        .summary-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); }
+        .summary-card h3 { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; font-weight: 600; }
+        .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-label { color: var(--text-muted); }
+        .summary-value { font-weight: 600; color: var(--text); }
+
+        /* ── MANAGER: inline entry-form fields ───────────── */
+        .mgr-field { display: flex; flex-direction: column; gap: 4px; }
+        .mgr-field label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+        .mgr-field input, .mgr-field select {
+            padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 14px; color: var(--text); background: var(--surface-muted); outline: none; transition: .2s;
+        }
+        .mgr-field input:focus, .mgr-field select:focus { border-color: var(--brass-dark); background: var(--surface); }
+
+        /* ── MANAGER: team sales card ────────────────────── */
+        .team-card { margin-bottom: 20px; border: 1px solid var(--border-soft); border-radius: var(--radius-md); overflow: hidden; }
+        .team-card-header { background: var(--surface-muted); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .team-card-header .emp-id { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+        .team-card-stats { display: flex; gap: 16px; font-size: 13px; color: var(--text); }
+
+        .modal-box h2 { font-family: var(--font-display); font-weight:600; font-size:19px; color: var(--text); margin-bottom: 18px; }
+        .modal-box label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; display:block; margin-bottom: 6px; margin-top: 14px; }
+        .modal-box input, .modal-box textarea {
+            width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 14px; color: var(--text); outline: none; background: var(--surface-muted);
+            font-family: var(--font-body); transition: border-color .15s ease, background .15s ease;
+        }
+        .modal-box input:focus, .modal-box textarea:focus { border-color: var(--brass-dark); background: var(--surface); }
+        .modal-box input:disabled { background: var(--border-soft); color: var(--text-muted); }
+        .modal-box textarea { resize: vertical; min-height: 80px; }
+    </style>
+</head>
+<body>
+
+<!-- MOBILE SIDEBAR CONTROLS -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleMobileSidebar()" aria-label="Open menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileSidebar()"></div>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────────── -->
+<div class="sidebar" id="mainSidebar">
+    <div class="logo">
+        <span class="mark">✦</span>
+        <div>
+            <div class="word">Panache</div>
+            <div class="sub">Workforce&nbsp;OS</div>
+        </div>
+    </div>
+    <div class="menu" id="sidebarMenu">
+        <!-- links injected by JS based on role -->
+    </div>
+
+    <!-- personal to-do -->
+    <div class="sidebar-todo">
+        <p class="todo-label">My notes</p>
+        <div id="sidebarTodos"></div>
+        <div class="todo-input-row">
+            <input class="todo-input" id="todoInput" placeholder="Add a task..."
+                   onkeydown="if(event.key==='Enter') addTodo()" />
+            <button class="todo-add-btn" onclick="addTodo()">+</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────────────── -->
+<div class="main">
+
+    <!-- header -->
+    <div class="page-header">
+        <div class="header-title">
+            <div class="eyebrow">Sales</div>
+            <h1>Sales Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <div class="profile">
+                <b id="profileName">—</b><br>
+                <span id="profileRole" style="font-weight:400;font-size:12px;color:var(--text-muted);"></span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- week calendar -->
+    <div class="week-bar">
+        <div class="week-bar-header">
+            <label id="weekRangeLabel">Select Week</label>
+            <div class="week-nav-btns">
+                <button class="week-nav-btn" id="weekNavPrev" onclick="shiftWeekPage(-1)" title="Previous weeks">&#8249;</button>
+                <button class="week-nav-btn" id="weekNavNext" onclick="shiftWeekPage(1)"  title="Next weeks">&#8250;</button>
+            </div>
+        </div>
+        <div class="week-grid" id="weekGrid"></div>
+    </div>
+
+    <!-- ── EMPLOYEE VIEW ─────────────────────────────────────────── -->
+    <div id="employeeView">
+        <div class="sales-layout-grid">
+
+            <!-- LEFT: form + projections table -->
+            <div>
+                <!-- entry form (hidden when viewing past weeks) -->
+                <div class="section" id="entryFormSection">
+                    <h2>Add Projection — Week <span id="formWeekLabel"></span></h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="fCustomer" placeholder="e.g. ABC Industries" />
+                        </div>
+                        <div class="form-group">
+                            <label>Product Name</label>
+                            <input type="text" id="fProduct" placeholder="e.g. Router" />
+                        </div>
+                        <div class="form-group">
+                            <label>Projected Quantity</label>
+                            <input type="number" id="fQty" placeholder="e.g. 5" min="1" />
+                        </div>
+                        <div class="form-group">
+                            <label>Price Per Unit (₹)</label>
+                            <input type="number" id="fPrice" placeholder="e.g. 1200" min="0" />
+                        </div>
+                        <div class="form-full">
+                            <button class="btn-primary" onclick="submitProjection()">
+                                + Add Projection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- projections table -->
+                <div class="section">
+                    <h2>Projections — Week <span id="tableWeekLabel"></span></h2>
+                    <div id="projTableWrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Product</th>
+                                    <th>Proj. Qty</th>
+                                    <th>Price/Unit</th>
+                                    <th>Achieved Qty</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="projTableBody">
+                                <tr><td colspan="6" class="no-data">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- change requests raised by this employee -->
+                <div class="section" id="myRequestsSection">
+                    <h2>My Change Requests</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Week</th><th>Customer</th><th>Product</th>
+                                <th>Old Qty</th><th>New Qty</th><th>Reason</th><th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="myRequestsBody">
+                            <tr><td colspan="7" class="no-data">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RIGHT: chart + stats -->
+            <div class="right-panel">
+                <!-- donut chart -->
+                <div class="chart-card">
+                    <h3>Quantity Achievement</h3>
+                    <div class="chart-wrap">
+                        <canvas id="donutChart"></canvas>
+                        <div class="chart-center-text" id="chartPct">—</div>
+                    </div>
+                </div>
+
+                <!-- stat cards -->
+                <div class="stat-card">
+                    <h3>Projected Quantity</h3>
+                    <div class="stat-value" id="statProjected">—</div>
+                    <div class="stat-sub">units this week</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Achieved Quantity</h3>
+                    <div class="stat-value" id="statAchieved" style="color:var(--success);">—</div>
+                    <div class="stat-sub">units this week</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Achievement %</h3>
+                    <div class="stat-value" id="statPct" style="color:var(--warning);">—</div>
+                </div>
+
+                <!-- weekly summary -->
+                <div class="summary-card">
+                    <h3>Weekly Summary</h3>
+                    <div class="summary-row">
+                        <span class="summary-label">Customers</span>
+                        <span class="summary-value" id="sumCustomers">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Products</span>
+                        <span class="summary-value" id="sumProducts">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Projected Revenue</span>
+                        <span class="summary-value" id="sumProjRev">—</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Achieved Revenue</span>
+                        <span class="summary-value" id="sumAchRev">—</span>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /sales-layout-grid -->
+    </div><!-- /employeeView -->
+
+    <!-- ── MANAGER / ADMIN VIEW ──────────────────────────────────── -->
+   
+    
+    <div id="managerView" style="display:none;">
+
+        <!-- ── MANAGER: ADD PROJECTION FOR TEAM MEMBER ──────────── -->
+        <div class="section" id="mgrEntryFormSection">
+            <h2>Add Projection for Team Member — Week <span id="mgr_weekLabel2"></span></h2>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;align-items:flex-end;">
+                <div class="mgr-field">
+                    <label>Employee</label>
+                    <select id="mgrEmpSelect" style="min-width:160px;">
+                        <option value="">Select employee…</option>
+                    </select>
+                </div>
+                <div class="mgr-field">
+                    <label>Customer</label>
+                    <input id="mgrFCustomer" type="text" placeholder="Customer name" style="width:160px;" />
+                </div>
+                <div class="mgr-field">
+                    <label>Product</label>
+                    <input id="mgrFProduct" type="text" placeholder="Product name" style="width:140px;" />
+                </div>
+                <div class="mgr-field">
+                    <label>Proj Qty</label>
+                    <input id="mgrFQty" type="number" min="1" placeholder="Qty" style="width:90px;" />
+                </div>
+                <div class="mgr-field">
+                    <label>Price / Unit (₹)</label>
+                    <input id="mgrFPrice" type="number" min="0" step="0.01" placeholder="Price" style="width:110px;" />
+                </div>
+                <button class="btn-primary" onclick="mgrSubmitProjection()" style="height:40px;">
+                    + Add Projection
+                </button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Team Sales Overview — Week <span id="mgr_weekLabel"></span></h2>
+            <div id="teamSalesWrap">
+                <p class="no-data">Loading…</p>
+            </div>
+        </div>
+
+        <!-- change requests for team -->
+        <div class="section">
+            <h2>Projection Change Requests</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee</th><th>Week</th><th>Customer</th><th>Product</th>
+                        <th>Old→New Qty</th><th>Reason</th><th>Status</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="crTableBody">
+                    <tr><td colspan="8" class="no-data">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /main -->
+
+<!-- ── CHANGE REQUEST MODAL ────────────────────────────────────── -->
+<div class="modal-overlay" id="crModal">
+    <div class="modal-box">
+        <h2>Raise Change Request</h2>
+        <input type="hidden" id="crCustomer" />
+        <input type="hidden" id="crProduct" />
+        <input type="hidden" id="crOldQty" />
+
+        <label>Customer</label>
+        <input type="text" id="crCustomerDisplay" disabled />
+
+        <label>Product</label>
+        <input type="text" id="crProductDisplay" disabled />
+
+        <label>Current Projected Qty</label>
+        <input type="number" id="crOldDisplay" disabled />
+
+        <label>Requested New Qty</label>
+        <input type="number" id="crNewQty" placeholder="Enter new quantity" min="1" />
+
+        <label>Reason for Change</label>
+        <textarea id="crReason" placeholder="e.g. Customer increased requirement from 5 to 8 units."></textarea>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeCRModal()">Cancel</button>
+            <button class="btn-submit" onclick="submitCR()">Submit Request</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── GLOBALS ────────────────────────────────────────────────────
+const BASE          = "https://backend-n5lk.onrender.com";
+const userId        = parseInt(localStorage.getItem("userId"));
+const userRole      = localStorage.getItem("userRole");
+const userName      = localStorage.getItem("userName");
+const TODO_KEY      = "panache_todos";
+const WEEKS_PER_PAGE = 4;
+const FUTURE_WEEKS   = 8;
+
+let currentWeekNum = 0;
+let selectedWeek   = 0;
+let allWeeks       = [];
+let weekRows       = [];
+let donutChart     = null;
+let weekPageOffset = 0;
+
+// ── INIT ───────────────────────────────────────────────────────
+document.getElementById("profileName").textContent = userName || "—";
+document.getElementById("profileRole").textContent = userRole
+    ? (userRole.charAt(0).toUpperCase() + userRole.slice(1)) : "";
+
+buildSidebar();
+renderTodos();
+initPage();
+
+async function initPage() {
+    try {
+        const cw = await fetch(`${BASE}/sales/current-week`).then(r => r.json());
+        currentWeekNum = cw.week;
+        selectedWeek   = currentWeekNum;
+
+        document.getElementById("employeeView").style.display = "block";
+
+        await loadWeeks();
+
+        if (userRole === "manager" || userRole === "admin") {
+            document.getElementById("managerView").style.display = "block";
+            document.getElementById("mgr_weekLabel").textContent = selectedWeek;
+            const lbl2 = document.getElementById("mgr_weekLabel2");
+            if (lbl2) lbl2.textContent = selectedWeek;
+            await loadManagerView();
+            await loadCRTable();
+            await loadMgrTeamDropdown();
+        } else {
+            document.getElementById("managerView").style.display = "none";
+        }
+    } catch(e) {
+        console.error("initPage error:", e);
+    }
+}
+
+// ── SIDEBAR LINKS ──────────────────────────────────────────────
+const NAV_ICONS = {
+    "Dashboard":       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    "History":         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+    "Sales Dashboard": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg>',
+    "Settings":        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+};
+
+function buildSidebar() {
+    const menu = document.getElementById("sidebarMenu");
+    const links = {
+        employee: [
+            ["employee-dashboard.html", "Dashboard"],
+            ["history.html",            "History"],
+            ["sales-dashboard.html",    "Sales Dashboard"],
+            ["settings.html",           "Settings"],
+        ],
+        manager: [
+            ["manager-dashboard.html",  "Dashboard"],
+            ["sales-dashboard.html",    "Sales Dashboard"],
+            ["settings.html",           "Settings"],
+        ],
+        admin: [
+            ["admin-dashboard.html",    "Dashboard"],
+            ["sales-dashboard.html",    "Sales Dashboard"],
+            ["settings.html",           "Settings"],
+        ],
+    };
+    (links[userRole] || []).forEach(([href, label]) => {
+        const a = document.createElement("a");
+        a.href = href;
+        a.textContent = label;
+        if (href === "sales-dashboard.html") a.classList.add("active");
+        menu.appendChild(a);
+    });
+}
+// ── TOAST ──────────────────────────────────────────────────────
+function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+function logout() { localStorage.clear(); window.location.href = "index.html"; }
+
+// ── WEEK CALENDAR ──────────────────────────────────────────────
+function getWeekStartDate(weekNum) {
+    const today = new Date();
+    const dow = today.getDay() === 0 ? 7 : today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dow - 1));
+    monday.setHours(0, 0, 0, 0);
+    const diff = weekNum - currentWeekNum;
+    const d = new Date(monday);
+    d.setDate(d.getDate() + diff * 7);
+    return d;
+}
+
+function fmtDate(d) {
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+function buildWeekCalendar() {
+    const grid  = document.getElementById("weekGrid");
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    // Show a couple of past weeks alongside the current week by default,
+    // instead of only current + upcoming weeks.
+    const INITIAL_BACK = 26;
+
+    const startOffset  = weekPageOffset * WEEKS_PER_PAGE - 2;
+    const visibleWeeks = [];
+    for (let i = 0; i < WEEKS_PER_PAGE; i++) {
+        visibleWeeks.push(currentWeekNum + startOffset + i);
+    }
+
+    const minWeek = allWeeks.length ? Math.min(...allWeeks, currentWeekNum) : currentWeekNum;
+
+    document.getElementById("weekNavNext").disabled =
+        (currentWeekNum + startOffset + WEEKS_PER_PAGE) > currentWeekNum + FUTURE_WEEKS;
+
+    const firstDate = getWeekStartDate(visibleWeeks[0]);
+    const lastStart = getWeekStartDate(visibleWeeks[WEEKS_PER_PAGE - 1]);
+    const lastEnd   = new Date(lastStart); lastEnd.setDate(lastEnd.getDate() + 6);
+    document.getElementById("weekRangeLabel").textContent =
+        `${fmtDate(firstDate)} — ${fmtDate(lastEnd)}`;
+
+    const DAY_NAMES = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+    grid.innerHTML = "";
+    visibleWeeks.forEach(w => {
+        const weekStart = getWeekStartDate(w);
+        const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+
+        const isPast     = w < currentWeekNum;
+        const isCurrent  = w === currentWeekNum;
+        const isUpcoming = w > currentWeekNum;
+        const isActive   = w === selectedWeek;
+
+        let cardClass = "week-card";
+        if (isActive) cardClass += " active";
+        if (isPast)   cardClass += " past";
+
+        let badgeClass = "wk-badge";
+        let badgeText  = "";
+        if (isCurrent)  { badgeClass += " current";  badgeText = "Current";  }
+        if (isUpcoming) { badgeClass += " upcoming"; badgeText = "Upcoming"; }
+        if (isPast)     { badgeClass += " past";     badgeText = "Past";     }
+
+        const dayChips = DAY_NAMES.map((name, idx) => {
+            const d = new Date(weekStart); d.setDate(weekStart.getDate() + idx);
+            const isToday = d.getTime() === today.getTime();
+            return `<span class="day-chip${isToday ? " today" : ""}">${name} ${d.getDate()}</span>`;
+        }).join("");
+
+        const card = document.createElement("div");
+        card.className = cardClass;
+        card.innerHTML = `
+            <div class="week-card-top">
+                <span class="week-card-num">Week ${w}</span>
+                <span class="${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="week-card-dates">${fmtDate(weekStart)} – ${fmtDate(weekEnd)}</div>
+            <div class="week-card-days">${dayChips}</div>`;
+        card.onclick = () => selectWeek(w);
+        grid.appendChild(card);
+    });
+}
+
+function shiftWeekPage(dir) {
+    weekPageOffset += dir;
+    buildWeekCalendar();
+}
+
+async function loadWeeks() {
+    try {
+        const res = await fetch(
+            `${BASE}/sales/weeks?user_id=${userId}&viewer_id=${userId}&viewer_role=${userRole}`
+        ).then(r => r.json());
+        allWeeks = res.weeks || [];
+    } catch(e) {
+        allWeeks = [];
+    }
+    if (!allWeeks.includes(currentWeekNum)) allWeeks.push(currentWeekNum);
+    allWeeks.sort((a, b) => a - b);
+    selectedWeek = currentWeekNum;
+    buildWeekCalendar();
+    await loadWeekData();
+}
+
+async function selectWeek(w) {
+    selectedWeek = w;
+    buildWeekCalendar();
+    await loadWeekData();
+    if (userRole === "manager" || userRole === "admin") {
+        document.getElementById("mgr_weekLabel").textContent = w;
+        const lbl2 = document.getElementById("mgr_weekLabel2");
+        if (lbl2) lbl2.textContent = w;
+        await loadManagerView();
+        await loadCRTable();
+        await loadMgrTeamDropdown();
+    }
+}
+
+// ── LOAD WEEK DATA ─────────────────────────────────────────────
+async function loadWeekData() {
+    const isFutureWeek  = selectedWeek > currentWeekNum;
+    const isPastWeek    = selectedWeek < currentWeekNum;
+    const canEdit       = !isPastWeek;   // current + future are editable
+
+    document.getElementById("formWeekLabel").textContent  = selectedWeek;
+    document.getElementById("tableWeekLabel").textContent = selectedWeek;
+    document.getElementById("entryFormSection").style.display = canEdit ? "block" : "none";
+
+    try {
+        const res = await fetch(
+            `${BASE}/sales/rows?user_id=${userId}&week=${selectedWeek}&viewer_id=${userId}&viewer_role=${userRole}`
+        ).then(r => r.json());
+        weekRows = res.rows || [];
+    } catch(e) {
+        weekRows = [];
+    }
+
+    renderProjectionTable();
+    updateChartAndStats();
+    await loadMyRequests();
+}
+
+// ── RENDER PROJECTION TABLE ────────────────────────────────────
+function renderProjectionTable() {
+    const tbody    = document.getElementById("projTableBody");
+    const isFuture = selectedWeek > currentWeekNum;
+    const isPast   = selectedWeek < currentWeekNum;
+    const canEdit  = !isPast;
+
+    if (!weekRows.length) {
+        const msg = canEdit ? "No projections yet. Add one above." : "No data for this week.";
+        tbody.innerHTML = `<tr><td colspan="6" class="no-data">${msg}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = weekRows.map((row, idx) => {
+        const lockIcon = `<span style="color:var(--text-faint);font-size:14px;" title="Locked">🔒</span>`;
+
+        let achievedCell;
+        if (isPast) {
+            achievedCell = `<span style="font-weight:600;">${row.achieved || 0}</span>`;
+        } else if (isFuture) {
+            achievedCell = `<span style="color:var(--text-faint);font-size:12px;">Not yet</span>`;
+        } else {
+            achievedCell = `<input class="achieved-input" type="number" min="0"
+                id="ach_${idx}" value="${row.achieved || 0}"
+                onkeydown="if(event.key==='Enter') saveAchieved(${idx})" />
+                <button class="save-achieved-btn" onclick="saveAchieved(${idx})">Save</button>`;
+        }
+
+        const crBtn = (!isFuture && !isPast)
+            ? `<button class="cr-btn" onclick="openCRModal('${esc(row.customer)}','${esc(row.product)}',${row.projected})"
+                title="Request change to projected quantity">✏ Change</button>`
+            : "";
+
+        return `<tr>
+            <td><b>${row.customer}</b></td>
+            <td>${row.product}</td>
+            <td>${row.projected} ${isPast ? lockIcon : ""}</td>
+            <td>₹${Number(row.price).toLocaleString("en-IN")}</td>
+            <td>${achievedCell}</td>
+            <td>${crBtn}</td>
+        </tr>`;
+    }).join("");
+}
+
+function esc(s) { return String(s).replace(/'/g, "\\'"); }
+
+// ── SAVE ACHIEVED ──────────────────────────────────────────────
+async function saveAchieved(idx) {
+    const row = weekRows[idx];
+    const val = parseInt(document.getElementById(`ach_${idx}`).value) || 0;
+    try {
+        const res = await fetch(
+            `${BASE}/sales/achieved?user_id=${userId}&week=${selectedWeek}` +
+            `&customer=${encodeURIComponent(row.customer)}&product=${encodeURIComponent(row.product)}&achieved=${val}`,
+            { method: "PUT" }
+        ).then(r => r.json());
+        if (res.success) {
+            weekRows[idx].achieved = val;
+            showToast("Achieved quantity saved.");
+            updateChartAndStats();
+        } else {
+            showToast(res.message || "Save failed.");
+        }
+    } catch(e) {
+        showToast("Network error saving achieved.");
+    }
+}
+
+// ── SUBMIT PROJECTION ──────────────────────────────────────────
+async function submitProjection() {
+    const customer = document.getElementById("fCustomer").value.trim();
+    const product  = document.getElementById("fProduct").value.trim();
+    const qty      = parseInt(document.getElementById("fQty").value);
+    const price    = parseFloat(document.getElementById("fPrice").value);
+
+    if (!customer || !product || !qty || !price) {
+        showToast("Please fill in all fields."); return;
+    }
+
+    try {
+        const res = await fetch(
+            `${BASE}/sales/projection?user_id=${userId}&week=${selectedWeek}` +
+            `&customer=${encodeURIComponent(customer)}&product=${encodeURIComponent(product)}` +
+            `&projected=${qty}&price=${price}`,
+            { method: "POST" }
+        ).then(r => r.json());
+
+        if (res.success) {
+            showToast("Projection added.");
+            ["fCustomer","fProduct","fQty","fPrice"].forEach(id => document.getElementById(id).value = "");
+            await loadWeekData();
+        } else {
+            showToast(res.message || "Failed to add projection.");
+        }
+    } catch(e) {
+        showToast("Network error submitting projection.");
+    }
+}
+
+// ── CHART + STATS ──────────────────────────────────────────────
+function updateChartAndStats() {
+    const totalProj = weekRows.reduce((s, r) => s + Number(r.projected || 0), 0);
+    const totalAch  = weekRows.reduce((s, r) => s + Number(r.achieved  || 0), 0);
+    const pct       = totalProj > 0 ? Math.round((totalAch / totalProj) * 100) : 0;
+
+    document.getElementById("statProjected").textContent = totalProj;
+    document.getElementById("statAchieved").textContent  = totalAch;
+    document.getElementById("statPct").textContent       = pct + "%";
+
+    const customers = [...new Set(weekRows.map(r => r.customer))].length;
+    const products  = [...new Set(weekRows.map(r => r.product))].length;
+    const projRev   = weekRows.reduce((s, r) => s + (Number(r.projected) * Number(r.price)), 0);
+    const achRev    = weekRows.reduce((s, r) => s + (Number(r.achieved)  * Number(r.price)), 0);
+
+    document.getElementById("sumCustomers").textContent = customers;
+    document.getElementById("sumProducts").textContent  = products;
+    document.getElementById("sumProjRev").textContent   = "₹" + projRev.toLocaleString("en-IN");
+    document.getElementById("sumAchRev").textContent    = "₹" + achRev.toLocaleString("en-IN");
+
+    const chartPctEl = document.getElementById("chartPct");
+    const ctx = document.getElementById("donutChart").getContext("2d");
+    if (donutChart) { donutChart.destroy(); donutChart = null; }
+
+    if (totalProj === 0) {
+        chartPctEl.textContent = "—";
+        return;
+    }
+
+    chartPctEl.textContent = pct + "%";
+    const remaining = Math.max(totalProj - totalAch, 0);
+    donutChart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+            datasets: [{
+                data: [totalAch, remaining],
+                backgroundColor: ["#C79A45", "#F0ECE1"],
+                borderWidth: 0,
+                hoverOffset: 4,
+            }]
+        },
+        options: {
+            cutout: "72%",
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            animation: { duration: 600 }
+        }
+    });
+}
+
+// ── CHANGE REQUEST MODAL ───────────────────────────────────────
+function openCRModal(customer, product, oldQty) {
+    document.getElementById("crCustomer").value        = customer;
+    document.getElementById("crProduct").value         = product;
+    document.getElementById("crOldQty").value          = oldQty;
+    document.getElementById("crCustomerDisplay").value = customer;
+    document.getElementById("crProductDisplay").value  = product;
+    document.getElementById("crOldDisplay").value      = oldQty;
+    document.getElementById("crNewQty").value          = "";
+    document.getElementById("crReason").value          = "";
+    document.getElementById("crModal").classList.add("active");
+}
+
+function closeCRModal() {
+    document.getElementById("crModal").classList.remove("active");
+}
+
+async function submitCR() {
+    const customer = document.getElementById("crCustomer").value;
+    const product  = document.getElementById("crProduct").value;
+    const oldQty   = document.getElementById("crOldQty").value;
+    const newQty   = parseInt(document.getElementById("crNewQty").value);
+    const reason   = document.getElementById("crReason").value.trim();
+
+    if (!newQty || !reason) { showToast("Please fill in all fields."); return; }
+    if (newQty === parseInt(oldQty)) { showToast("New quantity is the same as current."); return; }
+
+    try {
+        const res = await fetch(
+            `${BASE}/sales/change-request?employee_id=${userId}&week=${selectedWeek}` +
+            `&customer=${encodeURIComponent(customer)}&product=${encodeURIComponent(product)}` +
+            `&old_qty=${oldQty}&new_qty=${newQty}&reason=${encodeURIComponent(reason)}`,
+            { method: "POST" }
+        ).then(r => r.json());
+
+        if (res.success) {
+            showToast("Change request submitted.");
+            closeCRModal();
+            await loadMyRequests();
+        } else {
+            showToast(res.message || "Failed.");
+        }
+    } catch(e) {
+        showToast("Network error submitting request.");
+    }
+}
+
+// ── MY CHANGE REQUESTS ─────────────────────────────────────────
+async function loadMyRequests() {
+    try {
+        const res = await fetch(
+            `${BASE}/sales/change-requests?viewer_id=${userId}&viewer_role=${userRole}`
+        ).then(r => r.json());
+
+        const requests = res.requests || [];
+        const tbody = document.getElementById("myRequestsBody");
+
+        if (!requests.length) {
+            tbody.innerHTML = `<tr><td colspan="7" class="no-data">No change requests raised.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = requests.map(r => `
+            <tr>
+                <td>Week ${r.week}</td>
+                <td>${r.customer}</td>
+                <td>${r.product}</td>
+                <td>${r.old_qty}</td>
+                <td>${r.new_qty}</td>
+                <td style="max-width:180px;font-size:12px;color:var(--text-muted);">${r.reason}</td>
+                <td>${pillBadge(r.status)}</td>
+            </tr>`).join("");
+    } catch(e) {
+        console.error("loadMyRequests error:", e);
+    }
+}
+
+// ── MANAGER VIEW ───────────────────────────────────────────────
+async function loadManagerView() {
+    try {
+        const res = await fetch(
+            `${BASE}/sales/team?manager_id=${userId}&week=${selectedWeek}&viewer_role=${userRole}`
+        ).then(r => r.json());
+
+        const wrap = document.getElementById("teamSalesWrap");
+        if (!res.employees || !res.employees.length) {
+            wrap.innerHTML = `<p class="no-data">No team data found.</p>`;
+            return;
+        }
+
+        wrap.innerHTML = res.employees.map(emp => {
+            const rows = emp.rows || [];
+            const proj = rows.reduce((s, r) => s + Number(r.projected || 0), 0);
+            const ach  = rows.reduce((s, r) => s + Number(r.achieved  || 0), 0);
+            const pct  = proj > 0 ? Math.round(ach / proj * 100) : 0;
+
+            const rowsHtml = rows.length
+                ? rows.map(r => `
+                    <tr>
+                        <td>${r.customer}</td><td>${r.product}</td>
+                        <td>${r.projected}</td><td>₹${Number(r.price).toLocaleString("en-IN")}</td>
+                        <td><b>${r.achieved || 0}</b></td>
+                    </tr>`).join("")
+                : `<tr><td colspan="5" class="no-data">No projections this week.</td></tr>`;
+
+            return `
+            <div class="team-card">
+                <div class="team-card-header">
+                    <div>
+                        <b style="font-size:14px;">${emp.name}</b>
+                        <span class="emp-id">ID ${emp.id}</span>
+                    </div>
+                    <div class="team-card-stats">
+                        <span>Proj: <b>${proj}</b></span>
+                        <span>Ach: <b style="color:var(--success);">${ach}</b></span>
+                        <span>Achievement: <b style="color:${pct >= 75 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--danger)'}">${pct}%</b></span>
+                    </div>
+                </div>
+                <table>
+                    <thead><tr>
+                        <th>Customer</th><th>Product</th><th>Proj Qty</th>
+                        <th>Price/Unit</th><th>Achieved Qty</th>
+                    </tr></thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>`;
+        }).join("");
+    } catch(e) {
+        console.error("loadManagerView error:", e);
+    }
+}
+
+// ── CR TABLE (manager / admin) ─────────────────────────────────
+async function loadCRTable() {
+    try {
+        const res = await fetch(
+            `${BASE}/sales/change-requests?viewer_id=${userId}&viewer_role=${userRole}`
+        ).then(r => r.json());
+
+        const requests = res.requests || [];
+        const tbody = document.getElementById("crTableBody");
+
+        if (!requests.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="no-data">No change requests.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = requests.map(r => {
+            const actions = r.status === "pending"
+                ? `<button class="resolve-btn btn-approve" onclick="resolveRequest('${r.request_id}','approved')">Approve</button>
+                   <button class="resolve-btn btn-reject"  onclick="resolveRequest('${r.request_id}','rejected')">Reject</button>`
+                : `<span style="font-size:12px;color:var(--text-faint);">${r.manager_note || "—"}</span>`;
+            return `<tr>
+                <td>Emp ${r.employee_id}</td>
+                <td>Week ${r.week}</td>
+                <td>${r.customer}</td>
+                <td>${r.product}</td>
+                <td>${r.old_qty} → ${r.new_qty}</td>
+                <td style="max-width:160px;font-size:12px;color:var(--text-muted);">${r.reason}</td>
+                <td>${pillBadge(r.status)}</td>
+                <td>${actions}</td>
+            </tr>`;
+        }).join("");
+    } catch(e) {
+        console.error("loadCRTable error:", e);
+    }
+}
+
+async function resolveRequest(requestId, action) {
+    const note = action === "rejected" ? (prompt("Reason for rejection (optional):") || "") : "";
+    try {
+        const res = await fetch(
+            `${BASE}/sales/change-request/resolve?request_id=${encodeURIComponent(requestId)}` +
+            `&action=${action}&manager_note=${encodeURIComponent(note)}&viewer_role=${userRole}`,
+            { method: "POST" }
+        ).then(r => r.json());
+        if (res.success) {
+            showToast(`Request ${action}.`);
+            await Promise.all([loadCRTable(), loadManagerView()]);
+        } else {
+            showToast(res.message || "Failed.");
+        }
+    } catch(e) {
+        showToast("Network error resolving request.");
+    }
+}
+
+function pillBadge(status) {
+    const map = { pending: "pill-pending", approved: "pill-approved", rejected: "pill-rejected" };
+    return `<span class="status-pill ${map[status] || ''}">${status}</span>`;
+}
+
+// ── PERSONAL TO-DO ─────────────────────────────────────────────
+function getTodos() {
+    try { return JSON.parse(localStorage.getItem(TODO_KEY)) || []; }
+    catch { return []; }
+}
+function saveTodos(t) { localStorage.setItem(TODO_KEY, JSON.stringify(t)); }
+
+function renderTodos() {
+    const list  = document.getElementById("sidebarTodos");
+    const todos = getTodos();
+    list.innerHTML = "";
+    todos.forEach((text, i) => {
+        const row = document.createElement("div");
+        row.className = "todo-item";
+        row.innerHTML = `
+            <div class="todo-circle" onclick="completeTodo(${i})" title="Mark complete"></div>
+            <span>${text}</span>`;
+        list.appendChild(row);
+    });
+}
+
+function addTodo() {
+    const inp  = document.getElementById("todoInput");
+    const text = inp.value.trim();
+    if (!text) return;
+    const todos = getTodos();
+    todos.push(text);
+    saveTodos(todos);
+    inp.value = "";
+    renderTodos();
+}
+
+function completeTodo(i) {
+    const circle = document.getElementById("sidebarTodos").children[i].querySelector(".todo-circle");
+    circle.classList.add("done");
+    circle.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    setTimeout(() => {
+        const todos = getTodos();
+        todos.splice(i, 1);
+        saveTodos(todos);
+        renderTodos();
+    }, 500);
+}
+
+document.getElementById("crModal").addEventListener("click", function(e) {
+    if (e.target === this) closeCRModal();
+});
+
+// ── MANAGER: EMPLOYEE DROPDOWN ────────────────────────────────
+async function loadMgrTeamDropdown() {
+    if (userRole === "employee") return;
+    try {
+        const res = await fetch(
+            `${BASE}/sales/team?manager_id=${userId}&week=${selectedWeek}&viewer_role=${userRole}`
+        ).then(r => r.json());
+        const sel = document.getElementById("mgrEmpSelect");
+        if (!sel) return;
+        sel.innerHTML = `<option value="">Select employee…</option>`;
+        (res.employees || []).forEach(emp => {
+            const opt = document.createElement("option");
+            opt.value       = emp.id;
+            opt.textContent = emp.name + " (ID " + emp.id + ")";
+            sel.appendChild(opt);
+        });
+        const lbl2 = document.getElementById("mgr_weekLabel2");
+        if (lbl2) lbl2.textContent = selectedWeek;
+    } catch(e) {
+        console.error("loadMgrTeamDropdown error:", e);
+    }
+}
+
+// ── MANAGER: SUBMIT PROJECTION FOR EMPLOYEE ───────────────────
+async function mgrSubmitProjection() {
+    const empId    = document.getElementById("mgrEmpSelect").value;
+    const customer = document.getElementById("mgrFCustomer").value.trim();
+    const product  = document.getElementById("mgrFProduct").value.trim();
+    const qty      = parseInt(document.getElementById("mgrFQty").value);
+    const price    = parseFloat(document.getElementById("mgrFPrice").value);
+
+    if (!empId || !customer || !product || !qty || !price) {
+        showToast("Please fill in all fields including selecting an employee."); return;
+    }
+
+    try {
+        const res = await fetch(
+            `${BASE}/sales/projection?user_id=${empId}&week=${selectedWeek}` +
+            `&customer=${encodeURIComponent(customer)}&product=${encodeURIComponent(product)}` +
+            `&projected=${qty}&price=${price}`,
+            { method: "POST" }
+        ).then(r => r.json());
+
+        if (res.success) {
+            showToast("Projection added for employee.");
+            ["mgrFCustomer","mgrFProduct","mgrFQty","mgrFPrice"].forEach(id => document.getElementById(id).value = "");
+            document.getElementById("mgrEmpSelect").value = "";
+            await loadManagerView();
+        } else {
+            showToast(res.message || "Failed to add projection.");
+        }
+    } catch(e) {
+        showToast("Network error adding projection.");
+    }
+}
+</script>
+
+<!-- PWA: installable app support -->
+<button id="pwaInstallBtn" onclick="pwaInstallApp()">⬇ Install App</button>
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("service-worker.js").catch(err =>
+                console.warn("Service worker registration failed:", err)
+            );
+        });
+    }
+
+    let pwaDeferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        pwaDeferredPrompt = e;
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "flex";
+    });
+
+    function pwaInstallApp() {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (!pwaDeferredPrompt) return;
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.finally(() => {
+            pwaDeferredPrompt = null;
+            if (btn) btn.style.display = "none";
+        });
+    }
+
+    window.addEventListener("appinstalled", () => {
+        const btn = document.getElementById("pwaInstallBtn");
+        if (btn) btn.style.display = "none";
+    });
+</script>
+
+</body>
+</html>
